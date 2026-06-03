@@ -1,0 +1,19 @@
+{
+  "name": "Ethan Marot",
+  "short_name": "Ethan Marot",
+  "icons": [
+    {
+      "src": "media/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "media/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#000000",
+  "background_color": "#000000",
+  "display": "standalone"
+}
