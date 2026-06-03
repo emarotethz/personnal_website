@@ -143,8 +143,8 @@ const TWEAKS = {
   .disc.nudge{animation:discNudge .75s cubic-bezier(.36,.07,.19,.97)}
   .disc.click{animation:discClick .5s cubic-bezier(.2,.7,.2,1)}
   .disc .ring{position:absolute;inset:0;width:100%;height:100%;overflow:visible}
-  .disc .ring circle{fill:none;stroke:var(--line);stroke-width:.6;transition:stroke .45s}
-  .disc .ticks line{stroke:var(--line);stroke-width:.6;transition:stroke .45s}
+  .disc .ring circle{fill:none;stroke:rgba(243,241,236,0.32);stroke-width:.7;transition:stroke .45s}
+  .disc .ticks line{stroke:rgba(243,241,236,0.32);stroke-width:.7;transition:stroke .45s}
   .disc .notch{stroke:var(--accent);stroke-width:1.4;stroke-linecap:round}
   .disc .rotor{position:absolute;inset:32px;display:grid;place-items:center;border-radius:50%;
     background:radial-gradient(circle at 50% 44%,rgba(232,90,26,0.05),transparent 70%);will-change:transform}
@@ -158,6 +158,11 @@ const TWEAKS = {
   .disc:focus-visible{box-shadow:0 0 0 2px var(--bg),0 0 0 4px var(--accent)}
   @keyframes discNudge{0%,100%{transform:rotate(0)}18%{transform:rotate(-10deg)}44%{transform:rotate(8deg)}68%{transform:rotate(-4deg)}88%{transform:rotate(2deg)}}
   @keyframes discClick{0%{transform:scale(1)}32%{transform:scale(.92)}66%{transform:scale(1.03)}100%{transform:scale(1)}}
+  .cl-dialwrap{position:relative;flex:0 0 auto}
+  .cl-tip{position:absolute;top:calc(100% + 14px);left:50%;transform:translateX(-50%) translateY(5px);white-space:nowrap;
+    font-family:var(--mono);font-size:11px;letter-spacing:0.1em;text-transform:uppercase;color:var(--accent);
+    opacity:0;pointer-events:none;transition:opacity .55s ease,transform .55s ease}
+  .cl-tip.show{opacity:.82;transform:translateX(-50%) translateY(0)}
   @media (max-width:560px){.disc{width:158px;height:158px}.disc .rotor{inset:24px}.disc .rotor svg{width:74px;height:74px}.cl-stage{gap:36px}}
 
   .cl-channels{display:flex;flex-direction:column;gap:2px;width:min(440px,90vw);margin:0}
@@ -571,6 +576,7 @@ const TWEAKS = {
       </div>
     </div>
     <div class="cl-stage" id="cl-puzzle">
+      <div class="cl-dialwrap">
       <div class="disc" id="cl-disc" role="slider" tabindex="0" aria-valuemin="0" aria-valuemax="94" aria-valuenow="0"
            aria-label="Cipher dial — spin to decrypt the contact channels; use arrow keys to step">
         <svg class="ring" id="cl-ring" viewBox="0 0 100 100" aria-hidden="true">
@@ -582,6 +588,8 @@ const TWEAKS = {
         <div class="rotor" id="cl-rotor">
           <svg viewBox="0 11.42 51.65 26.21" aria-hidden="true"><path d="M49.9254 11.6009C50.9624 11.9994 51.6467 12.9955 51.6467 14.1064V33.3154C51.6467 33.5429 51.5483 33.7592 51.3768 33.9087L47.2562 37.499C46.8744 37.8317 46.2784 37.5605 46.2784 37.0541V21.0913L38.7009 29.4947L25.2021 16.7906L9.66913 16.7906L18.2468 24.5253L9.66913 32.26H24.5283C24.7359 32.26 24.9351 32.342 25.0825 32.4882L29.247 36.6192C29.6211 36.9902 29.3583 37.6283 28.8314 37.6283H2.68426C1.57335 37.6283 0.577235 36.9439 0.178742 35.907C-0.21975 34.87 0.0617381 33.6947 0.886766 32.9507L10.2305 24.5253L0.886765 16.0999C0.0617371 15.3559 -0.219751 14.1806 0.178741 13.1436C0.577234 12.1067 1.57335 11.4223 2.68426 11.4223L27.0189 11.4223C27.2193 11.4223 27.4122 11.4988 27.5582 11.6361L38.3865 21.827L46.9691 12.3089C47.7131 11.4839 48.8884 11.2024 49.9254 11.6009Z"></path></svg>
         </div>
+      </div>
+      <div class="cl-tip" id="cl-tip" aria-hidden="true">↻ drag to spin the dial</div>
       </div>
       <div class="cl-channels" id="cl-lines">
       <a class="ln" data-key="email" rel="noopener">
@@ -830,6 +838,7 @@ const TWEAKS = {
     var pos = 17 + (new Date().getMilliseconds() % (SIZE-1));
     while(isClear(pos)) pos = (pos + 13) % SIZE;
     var solved = false;
+    var tip = document.getElementById('cl-tip'), tipTimer = null;
 
     function render(){
 
@@ -853,6 +862,7 @@ const TWEAKS = {
       disc.classList.toggle('solved', clear);
       if(clear && !solved){
         solved = true;
+        clearTimeout(tipTimer); if(tip) tip.classList.remove('show');
         disc.classList.add('click');
         disc.setAttribute('aria-label','Dial aligned — contact channels decrypted');
       } else if(!clear && solved){
@@ -883,6 +893,10 @@ const TWEAKS = {
       new IntersectionObserver(function(es){ es.forEach(function(e){
         visible = e.isIntersecting;
         if(visible && !interacted && !solved) scheduleNudge(); else clearTimeout(nudgeTimer);
+        clearTimeout(tipTimer);
+        if(visible && !solved){
+          tipTimer = setTimeout(function(){ if(visible && !solved && tip) tip.classList.add('show'); }, 15000);
+        } else if(tip){ tip.classList.remove('show'); }
       }); }, {threshold:0.6}).observe(disc);
     }
 
