@@ -47,9 +47,13 @@ export default async (req) => {
     outcome = await casBeat(store, (beat) => ({ ok: true, beat: { ...beat, notes: snap.notes } }));
   } else if (action === 'reseed') {
     const fresh = seedBeat();
-
+    const keepLedger = parsed.body.keepLedger !== false;
     outcome = await casBeat(store, (beat) => ({
-      ok: true, beat: { ...beat, notes: fresh.notes, bpm: fresh.bpm, swing: fresh.swing },
+      ok: true,
+      beat: {
+        ...beat, notes: fresh.notes, bpm: fresh.bpm, swing: fresh.swing,
+        ledger: keepLedger ? beat.ledger : [],
+      },
     }));
   } else if (action === 'deleteNote') {
     const { id } = parsed.body;
