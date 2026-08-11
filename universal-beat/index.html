@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>universal beat</title>
+<meta name="robots" content="noindex,nofollow" />
+<link rel="icon" href="../media/browser_icon.svg?v=2" type="image/svg+xml" />
+<link rel="icon" href="../media/icon-32.png?v=2" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="../media/icon-180.png?v=2" />
+<meta name="theme-color" content="#000000" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --bg: #000;
+    --bg2: #060606;
+    --ink: #f3f1ec;
+    --dim: #7a766f;
+    --line: rgba(243,241,236,0.10);
+    --line2: rgba(243,241,236,0.05);
+    --accent: #E85A1A;
+    --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+    --display: 'Space Grotesk', system-ui, sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--display);font-size:14.5px;line-height:1.55;-webkit-font-smoothing:antialiased;letter-spacing:-0.005em}
+  body{overflow-x:hidden}
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--accent);color:#000}
+  .container{max-width:1280px;margin:0 auto;padding:0 32px}
+  @media (max-width:720px){.container{padding:0 18px}}
+
+  .reveal{opacity:0;transform:translateY(18px);transition:opacity .85s cubic-bezier(.2,.7,.2,1), transform .85s cubic-bezier(.2,.7,.2,1)}
+  .reveal.in{opacity:1;transform:translateY(0)}
+
+  .mono{font-family:var(--mono);letter-spacing:0.08em;text-transform:uppercase}
+
+  header.ub{padding:64px 0 26px;max-width:760px}
+  .eyebrow{font-family:var(--mono);font-size:10.5px;letter-spacing:0.22em;text-transform:uppercase;color:var(--accent)}
+  header.ub h1{font-size:clamp(30px,5.2vw,52px);font-weight:600;line-height:1.06;letter-spacing:-0.025em;margin:16px 0 14px}
+  header.ub p{color:var(--dim);font-size:15px;max-width:60ch}
+  header.ub p + p{margin-top:10px}
+
+  .budget{margin-top:24px;display:inline-flex;align-items:center;gap:10px;font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);border:1px solid var(--accent);padding:9px 14px;border-radius:2px}
+  .budget[data-state="spent"],.budget[data-state="capped"]{color:var(--dim);border-color:var(--line)}
+  .budget[hidden]{display:none}
+
+  .transport{display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:22px 0;border-top:1px solid var(--line);border-bottom:1px solid var(--line);margin-top:30px}
+  .listen{font-family:var(--mono);font-size:11px;letter-spacing:0.16em;text-transform:uppercase;background:var(--accent);color:#000;border:0;padding:11px 20px;border-radius:2px;cursor:pointer;font-weight:700}
+  .listen[disabled]{opacity:.5;cursor:default}
+  .listen.playing{background:transparent;color:var(--dim);border:1px solid var(--line)}
+  .tstat{font-family:var(--mono);font-size:10.5px;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim)}
+  .tstat b{color:var(--ink);font-weight:500}
+
+  .gridwrap{margin:30px 0 0;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;-ms-overflow-style:none}
+  .gridwrap::-webkit-scrollbar{display:none}
+  .grid{position:relative;display:grid;grid-template-columns:92px repeat(16,minmax(0,1fr));gap:3px;min-width:min-content}
+  .rlabel{font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);display:flex;align-items:center;position:sticky;left:0;background:var(--bg);z-index:3;padding-right:8px}
+  .cell{position:relative;height:34px;border:1px solid var(--line);border-radius:2px;background:transparent;cursor:pointer;padding:0;overflow:hidden;transition:border-color .15s ease, background-color .15s ease;touch-action:manipulation}
+  .cell.b4{border-left-color:rgba(243,241,236,0.22);scroll-snap-align:start}
+  .cell:hover{border-color:var(--dim)}
+  .cell:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+  .cell.on{border-color:transparent}
+  .cell.mine{box-shadow:inset 0 0 0 1.5px var(--accent)}
+  .cell.sel{border-color:var(--accent)}
+  .cell.ghost{border:1px dashed var(--accent);background:transparent}
+  .cell.hit{filter:brightness(1.9)}
+  .cell .decay{position:absolute;left:0;bottom:0;height:2px;background:var(--ink);opacity:.35}
+  .cell .deg{position:absolute;top:2px;right:3px;font-family:var(--mono);font-size:8.5px;color:var(--ink);opacity:.65}
+  .cell[disabled]{cursor:default}
+  .cell[disabled]:hover{border-color:var(--line)}
+  .cell.on[disabled]:hover{border-color:transparent}
+  .playhead{position:absolute;top:0;bottom:0;width:2px;background:rgba(232,90,26,0.13);border-left:2px solid var(--accent);pointer-events:none;opacity:0;z-index:2;will-change:transform}
+  .playhead.live{opacity:1}
+  .steplabels{display:grid;grid-template-columns:92px repeat(16,minmax(0,1fr));gap:3px;margin-top:8px}
+  .steplabels span{font-family:var(--mono);font-size:9px;color:var(--dim);text-align:center}
+  .steplabels span:first-child{text-align:left}
+
+  @media (max-width:860px){
+    .grid,.steplabels{grid-template-columns:64px repeat(16,34px)}
+    .rlabel{font-size:9px}
+  }
+
+  .inspector{margin-top:26px;border:1px solid var(--line);border-radius:3px;padding:20px;background:var(--bg2)}
+  .inspector[hidden]{display:none}
+  .insp-head{display:flex;justify-content:space-between;align-items:baseline;gap:14px;flex-wrap:wrap}
+  .insp-title{font-family:var(--mono);font-size:11px;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent)}
+  .insp-sub{font-family:var(--mono);font-size:10px;letter-spacing:0.08em;text-transform:uppercase;color:var(--dim)}
+  .sliders{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;margin:20px 0 4px}
+  .sl label{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+  .sl label b{color:var(--ink);font-weight:400}
+  input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:2px;background:var(--line);border-radius:2px;outline:none}
+  input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:0}
+  input[type=range]::-moz-range-thumb{width:14px;height:14px;border-radius:50%;background:var(--accent);cursor:pointer;border:0}
+  .insp-actions{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+  .btn{font-family:var(--mono);font-size:10.5px;letter-spacing:0.12em;text-transform:uppercase;background:transparent;color:var(--ink);border:1px solid var(--line);padding:10px 15px;border-radius:2px;cursor:pointer}
+  .btn:hover{border-color:var(--dim)}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#000;font-weight:700}
+  .btn.on{border-color:var(--accent);color:var(--accent)}
+  .btn[disabled]{opacity:.45;cursor:default}
+  .confirm{margin-top:18px;padding-top:18px;border-top:1px solid var(--line)}
+  .confirm p{font-size:15px;margin-bottom:16px}
+  .confirm p b{color:var(--accent);font-weight:500}
+
+  .banner{margin-top:22px;border-left:2px solid var(--accent);padding:12px 16px;background:var(--bg2);font-size:14px}
+  .banner[hidden]{display:none}
+  .banner .k{font-family:var(--mono);font-size:10px;letter-spacing:0.14em;text-transform:uppercase;color:var(--accent);display:block;margin-bottom:5px}
+  .banner.quiet{border-left-color:var(--line)}
+  .banner.quiet .k{color:var(--dim)}
+
+  .ledger{margin-top:52px;border-top:1px solid var(--line);padding-top:22px}
+  .seclabel{font-family:var(--mono);font-size:10px;letter-spacing:0.2em;text-transform:uppercase;color:var(--dim);margin-bottom:14px}
+  .ledger ol{list-style:none;display:flex;flex-direction:column;gap:7px}
+  .ledger li{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:0.02em;display:flex;gap:10px}
+  .ledger li b{color:var(--ink);font-weight:400}
+  .ledger li .ago{margin-left:auto;opacity:.7;white-space:nowrap}
+  .ledger li.v b{color:var(--accent)}
+
+  footer{padding:48px 0 28px;display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--dim);letter-spacing:0.06em;flex-wrap:wrap;gap:14px}
+  footer .l{display:flex;gap:14px;align-items:center}
+  footer a:hover{color:var(--ink)}
+
+  @media (prefers-reduced-motion: reduce){
+    .reveal{opacity:1;transform:none;transition:none}
+    .cell{transition:none}
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header class="ub reveal">
+    <div class="eyebrow">Universal Beat</div>
+    <h1>Everyone hears the same loop. You get to change it once.</h1>
+    <p>There is one sixteen-step loop and everybody who opens this page hears the same version of it.</p>
+    <p>You can change it once. Add a note, retune a note, or delete a note. After that you can only listen. Whatever you delete was put there by someone else, and whatever you add can be deleted by the next person who shows up.</p>
+    <div class="budget" id="budget" hidden></div>
+  </header>
+
+  <div class="transport">
+    <button class="listen" id="listen" type="button">▶ Listen</button>
+    <span class="tstat"><b id="statBpm">96</b> bpm</span>
+    <span class="tstat">version <b id="statVer">…</b></span>
+    <span class="tstat"><b id="statCount">…</b> / <b id="statMax">96</b> notes</span>
+    <span class="tstat" id="statNote"></span>
+  </div>
+
+  <div class="banner" id="banner" hidden><span class="k" id="bannerK"></span><span id="bannerT"></span></div>
+
+  <div class="gridwrap" id="gridwrap">
+    <div class="grid" id="grid" role="grid" aria-label="The loop: instruments by step">
+      <div class="playhead" id="playhead"></div>
+    </div>
+    <div class="steplabels" id="steplabels"></div>
+  </div>
+
+  <section class="inspector" id="inspector" hidden></section>
+
+  <section class="ledger">
+    <div class="seclabel">Recent moves</div>
+    <ol id="ledger"><li>Loading…</li></ol>
+  </section>
+
+  <footer>
+    <div class="l"><span>© Ethan Marot · 2026</span></div>
+    <div class="l"><a href="/">← ethanmarot.com</a></div>
+  </footer>
+
+</div>
+
+<script src="audio.js"></script>
+<script src="beat.js"></script>
+</body>
+</html>
