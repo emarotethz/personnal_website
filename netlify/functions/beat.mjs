@@ -6,7 +6,7 @@ import { json } from '../lib/http.mjs';
 
 const CACHE = {
   'cache-control': 'public, max-age=0, must-revalidate',
-  'netlify-cdn-cache-control': 'public, s-maxage=30, durable',
+  'netlify-cdn-cache-control': 'public, s-maxage=300, durable',
   'netlify-cache-tag': 'beat',
 };
 
