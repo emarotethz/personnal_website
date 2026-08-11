@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>miscellaneous projects</title>
+<meta name="robots" content="noindex,nofollow" />
+<link rel="icon" href="../media/browser_icon.svg?v=2" type="image/svg+xml" />
+<link rel="icon" href="../media/icon-32.png?v=2" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="../media/icon-180.png?v=2" />
+<meta name="theme-color" content="#f4ecdd" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Comic+Neue:wght@300;400;700&display=swap" rel="stylesheet" />
+<style>
+  :root{
+    --paper:#f4ecdd;
+    --ink:#231d18;
+    --dim:#6f6459;
+    --accent:#E85A1A;
+    --line:rgba(35,29,24,0.16);
+    --comic:'Comic Sans MS','Chalkboard SE','Comic Neue',ui-rounded,cursive;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html{-webkit-text-size-adjust:100%}
+  body{
+    min-height:100vh;
+    color:var(--ink);
+    font-family:var(--comic);
+    font-size:16.5px;
+    line-height:1.6;
+    background:
+      radial-gradient(60vmin 60vmin at 12% 16%, rgba(232,90,26,.34), transparent 62%),
+      radial-gradient(52vmin 52vmin at 86% 12%, rgba(79,163,206,.34), transparent 62%),
+      radial-gradient(58vmin 58vmin at 80% 88%, rgba(140,192,107,.34), transparent 62%),
+      radial-gradient(46vmin 46vmin at 20% 88%, rgba(210,96,154,.32), transparent 62%),
+      radial-gradient(42vmin 42vmin at 52% 50%, rgba(232,161,26,.26), transparent 60%),
+      var(--paper);
+    background-attachment:fixed;
+  }
+  a{color:inherit;text-decoration:none}
+  ::selection{background:var(--accent);color:#fff}
+  .wrap{max-width:1000px;margin:0 auto;padding:64px 28px 40px}
+  @media (max-width:720px){ .wrap{padding:44px 18px 32px} }
+
+  .eyebrow{font-size:13px;letter-spacing:0.1em;text-transform:uppercase;color:var(--dim);transform:rotate(-1deg);display:inline-block}
+  h1{font-size:clamp(44px,10vw,88px);font-weight:700;line-height:1;margin:10px 0 6px;letter-spacing:-0.01em}
+  h1 span{display:inline-block}
+  h1 span:nth-child(3n){transform:rotate(-4deg) translateY(2px)}
+  h1 span:nth-child(3n+1){transform:rotate(3deg) translateY(-2px)}
+  h1 span:nth-child(4n){transform:rotate(-1.5deg) translateY(3px)}
+  h1 span:nth-child(5n){color:var(--accent)}
+  .sub{display:inline-block;font-size:clamp(20px,3.8vw,34px);font-weight:700;color:var(--accent);transform:rotate(-2.5deg);margin:-4px 0 0 6px}
+  .squiggle{display:block;width:min(340px,72%);height:14px;margin:4px 0 18px;color:var(--accent)}
+
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:26px;margin-top:44px;align-items:start}
+  .tile{
+    display:block;position:relative;padding:22px 22px 20px;
+    background:rgba(255,252,246,0.82);
+    border:2px solid var(--ink);
+    border-radius:16px 20px 15px 22px;
+    box-shadow:5px 6px 0 rgba(35,29,24,0.82);
+    transform:rotate(-1.1deg);
+    transition:transform .18s ease, box-shadow .18s ease;
+  }
+  .tiles > *:nth-child(even){transform:rotate(1.4deg)}
+  a.tile:hover,a.tile:focus-visible{transform:rotate(0deg) translate(-2px,-3px);box-shadow:8px 10px 0 var(--accent);outline:none}
+  .tile h2{font-size:26px;font-weight:700;margin:14px 0 8px}
+  .tile p{font-size:15.5px;color:var(--dim);line-height:1.55}
+  .go{display:inline-block;margin-top:14px;font-weight:700;color:var(--accent)}
+  a.tile:hover .go{text-decoration:underline wavy}
+  .tile.empty{background:rgba(255,252,246,0.42);border-style:dashed;box-shadow:none}
+  .tile.empty h2{color:var(--dim)}
+
+  .seq{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;padding:10px;background:#000;border-radius:8px;border:2px solid var(--ink)}
+  .seq i{display:block;aspect-ratio:1;border-radius:2px;background:rgba(243,241,236,0.12)}
+  .seq i.on{background:var(--accent)}
+  .seq i.half{background:rgba(232,90,26,0.45)}
+
+  footer{margin-top:52px;padding-top:20px;border-top:2px dashed var(--line);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:14.5px;color:var(--dim)}
+  footer a{font-weight:700}
+  footer a:hover{color:var(--accent);text-decoration:underline wavy}
+
+  @media (prefers-reduced-motion: reduce){
+    .tile{transition:none}
+    a.tile:hover,a.tile:focus-visible{transform:rotate(0deg)}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="eyebrow">you found the loose corner</div>
+    <h1><span>m</span><span>i</span><span>s</span><span>c</span><span>e</span><span>l</span><span>l</span><span>a</span><span>n</span><span>e</span><span>o</span><span>u</span><span>s</span></h1>
+    <div class="sub">projects</div>
+    <svg class="squiggle" viewBox="0 0 340 14" fill="none" aria-hidden="true">
+      <path d="M3 9c26-8 52 4 78-1s52-9 78-2 52 9 78 3 52-6 100-4" stroke="currentColor" stroke-width="3.5" stroke-linecap="round"/>
+    </svg>
+  </header>
+
+  <div class="tiles">
+
+    <a class="tile" href="/universal-beat/">
+      <div class="seq" aria-hidden="true">
+        <i class="on"></i><i></i><i class="half"></i><i></i><i class="on"></i><i></i><i></i><i class="half"></i>
+        <i></i><i></i><i class="on"></i><i></i><i></i><i class="half"></i><i class="on"></i><i></i>
+        <i class="half"></i><i class="on"></i><i></i><i></i><i class="on"></i><i></i><i></i><i></i>
+        <i class="on"></i><i></i><i></i><i class="half"></i><i></i><i></i><i class="on"></i><i></i>
+      </div>
+      <h2>universal beat</h2>
+      <p>One drum loop that the whole internet shares. You can add a note, retune a note, or delete somebody else's note. You get to do that exactly once, and then you can only listen while other people take your work apart.</p>
+      <span class="go">go and ruin it →</span>
+    </a>
+
+    <div class="tile empty">
+      <h2>nothing yet</h2>
+      <p>Whatever I build next that is too silly for the front page ends up here. Check back, or do not, it is honestly fine either way.</p>
+    </div>
+
+  </div>
+
+  <footer>
+    <span>© Ethan Marot · 2026</span>
+    <a href="/">← back to the website with the serious font</a>
+  </footer>
+
+</div>
+</body>
+</html>

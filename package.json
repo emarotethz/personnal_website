@@ -1,0 +1,19 @@
+{
+  "name": "personnal-website",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ethanmarot.com static site plus the universal-beat serverless API",
+  "scripts": {
+    "dev": "netlify dev --offline",
+    "test": "node netlify/tests/scheduler.test.mjs && node netlify/tests/api.test.mjs",
+    "test:scheduler": "node netlify/tests/scheduler.test.mjs",
+    "test:api": "node netlify/tests/api.test.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "^10.7.12",
+    "@netlify/functions": "^5.3.0"
+  },
+  "devDependencies": {
+    "netlify-cli": "^27.1.1"
+  }
+}

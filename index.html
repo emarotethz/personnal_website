@@ -279,6 +279,69 @@ const TWEAKS = {
   .wc-dot[data-o="1"],.wc-dot[data-o="-1"]{width:7px;height:7px}
   .wc-dot[data-o="0"]{width:9px;height:9px;background:var(--accent);opacity:1;box-shadow:0 0 0 4px rgba(232,90,26,0.14);cursor:default}
   .wc-dot:not([data-o="0"]):hover{background:var(--ink);opacity:.85}
+
+  .peel{position:fixed;right:0;bottom:0;width:190px;height:190px;z-index:90;display:block;
+    pointer-events:none;-webkit-tap-highlight-color:transparent}
+  .peel:focus{outline:none}
+  .peel-wall,.peel-flap{pointer-events:auto}
+
+  .peel-wall{position:absolute;inset:0;overflow:hidden;isolation:isolate;
+    clip-path:polygon(100% 59%,100% 100%,54% 100%);
+    filter:brightness(1) saturate(.95);
+    transition:clip-path .5s cubic-bezier(.16,1,.3,1), filter .5s ease}
+  .peel:hover .peel-wall,.peel:has(:hover) .peel-wall,.peel:focus-visible .peel-wall{
+    clip-path:polygon(100% 21%,100% 100%,10% 100%);
+    filter:brightness(1.5) saturate(1.2)}
+
+  .peel-dye,.peel-dye2,.peel-dye3{position:absolute;left:-60%;top:-60%;width:220%;height:220%;
+    border-radius:50%;will-change:transform}
+  .peel-dye{
+    background:conic-gradient(from 0deg,#E85A1A,#E8A11A,#8CC06B,#4FA3CE,#8E7BD0,#D2609A,#E85A1A);
+    filter:blur(3px);opacity:.9;animation:peel-drift 3.5s linear infinite}
+  .peel-dye2{
+    background:repeating-conic-gradient(from 0deg,
+      rgba(255,255,255,.55) 0deg,rgba(0,0,0,.5) 7deg,rgba(255,255,255,.55) 14deg);
+    filter:blur(5px);mix-blend-mode:overlay;animation:peel-drift2 2.7s linear infinite}
+  .peel-dye3{
+    background:repeating-radial-gradient(circle at 38% 62%,
+      rgba(0,0,0,.45) 0 7px,rgba(255,255,255,.45) 7px 14px);
+    filter:blur(4px);mix-blend-mode:soft-light;animation:peel-drift3 4.3s linear infinite}
+  .peel-wall::after{content:'';position:absolute;inset:0;
+    background:radial-gradient(130% 100% at 100% 100%,rgba(0,0,0,0) 26%,rgba(0,0,0,.6) 100%);
+    transition:opacity .5s ease}
+  .peel:hover .peel-wall::after,.peel:has(:hover) .peel-wall::after{opacity:.28}
+
+  @keyframes peel-drift{
+    0%{transform:rotate(0deg) translate(0,0)}
+    25%{transform:rotate(90deg) translate(7%,-5%)}
+    50%{transform:rotate(180deg) translate(-5%,7%)}
+    75%{transform:rotate(270deg) translate(-7%,-6%)}
+    100%{transform:rotate(360deg) translate(0,0)}
+  }
+  @keyframes peel-drift2{
+    0%{transform:rotate(0deg) translate(0,0) scale(1)}
+    33%{transform:rotate(-120deg) translate(-8%,6%) scale(1.18)}
+    66%{transform:rotate(-240deg) translate(6%,8%) scale(.9)}
+    100%{transform:rotate(-360deg) translate(0,0) scale(1)}
+  }
+  @keyframes peel-drift3{
+    0%{transform:rotate(0deg) scale(1) translate(0,0)}
+    50%{transform:rotate(180deg) scale(1.35) translate(5%,-6%)}
+    100%{transform:rotate(360deg) scale(1) translate(0,0)}
+  }
+
+  .peel-flap{position:absolute;inset:0;
+    clip-path:polygon(100% 59%,79.7% 58.3%,59.3% 54.3%,58.5% 77.2%,54% 100%);
+    background:linear-gradient(139deg,#171412 0%,#3a342c 46%,#6f6558 82%,#9c9082 96%,#c4b8a6 100%);
+    filter:drop-shadow(0 0 2px rgba(0,0,0,0.95));
+    transition:clip-path .5s cubic-bezier(.16,1,.3,1), background .5s ease, filter .5s ease}
+  .peel:hover .peel-flap,.peel:has(:hover) .peel-flap,.peel:focus-visible .peel-flap{
+    clip-path:polygon(100% 21%,60.9% 19.1%,21.7% 10.8%,19.5% 55.4%,10% 100%);
+    background:linear-gradient(139deg,#221e1a 0%,#544b40 46%,#96897a 82%,#c6b9a7 96%,#e8dcc8 100%);
+    filter:drop-shadow(-2px -2px 5px rgba(0,0,0,0.95))}
+
+  @media (max-width:720px){ .peel{width:130px;height:130px} }
+  @media (prefers-reduced-motion: reduce){ .peel-dye,.peel-dye2{animation:none} }
 </style>
 <script type="importmap">
 { "imports": {
@@ -1506,5 +1569,9 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
   if(document.fonts && document.fonts.ready){ document.fonts.ready.then(init); } else { init(); }
 })();
 </script>
+
+<a class="peel" href="/miscellaneous/" rel="nofollow" aria-label="Miscellaneous projects" title="?">
+  <span class="peel-wall"><span class="peel-dye"></span><span class="peel-dye2"></span><span class="peel-dye3"></span></span><span class="peel-flap"></span>
+</a>
 </body>
 </html>
