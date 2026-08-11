@@ -8,9 +8,14 @@
   var AHEAD_VISIBLE = 0.12;
   var AHEAD_HIDDEN = 1.0;
   var AUDITION_GAP_MS = 60;
+  var DUCK = 0.34;
+  var SOLO_DUCK = 0.28;
 
   var ctx = null;
   var bus = null;
+  var soloBus = null;
+  var voiceOut = null;
+  var autoGain = 0.9;
   var comp = null;
   var delaySend = null;
   var noiseBuf = null;
@@ -83,7 +88,7 @@
     var f = filt(type, freq, q, t);
     var g = ctx.createGain();
     env(g.gain, t, peak, attack || 0.001, dur);
-    n.connect(f); f.connect(g); g.connect(dest || bus);
+    n.connect(f); f.connect(g); g.connect(dest || voiceOut);
     return g;
   }
 
@@ -94,7 +99,7 @@
       o.frequency.exponentialRampToValueAtTime(48, t + 0.045);
       var g = ctx.createGain();
       env(g.gain, t, g0, 0.002, n.decay);
-      o.connect(g); g.connect(bus);
+      o.connect(g); g.connect(voiceOut);
       o.start(t); o.stop(t + n.decay + 0.06);
       noiseHit(t, 0.002, 'highpass', 1500, 0.7, g0 * 0.25);
     },
@@ -104,7 +109,7 @@
       var o = osc('triangle', 185, t);
       var g = ctx.createGain();
       env(g.gain, t, g0 * 0.5, 0.001, Math.min(n.decay, 0.12));
-      o.connect(g); g.connect(bus);
+      o.connect(g); g.connect(voiceOut);
       o.start(t); o.stop(t + 0.2);
       noiseHit(t, n.decay, 'highpass', 1200, 0.7, g0);
     },
@@ -131,7 +136,7 @@
       env(g.gain, t, g0, 0.0005, d);
       var a = osc('square', 1700, t);
       var b = osc('square', 520, t);
-      a.connect(f); b.connect(f); f.connect(g); g.connect(bus);
+      a.connect(f); b.connect(f); f.connect(g); g.connect(voiceOut);
       a.start(t); b.start(t);
       a.stop(t + d + 0.02); b.stop(t + d + 0.02);
     },
@@ -143,7 +148,7 @@
       o.frequency.exponentialRampToValueAtTime(base, t + Math.max(0.05, n.decay * 0.6));
       var g = ctx.createGain();
       env(g.gain, t, g0, 0.002, n.decay);
-      o.connect(g); g.connect(bus);
+      o.connect(g); g.connect(voiceOut);
       o.start(t); o.stop(t + n.decay + 0.06);
     },
 
@@ -155,7 +160,7 @@
       lp.frequency.exponentialRampToValueAtTime(120, t + Math.max(0.06, n.decay * 0.6));
       var g = ctx.createGain();
       env(g.gain, t, g0, 0.005, n.decay);
-      o.connect(lp); lp.connect(g); g.connect(bus); g.connect(delaySend);
+      o.connect(lp); lp.connect(g); g.connect(voiceOut); g.connect(delaySend);
       o.start(t); o.stop(t + n.decay + 0.08);
     },
 
@@ -168,7 +173,7 @@
       lp.frequency.exponentialRampToValueAtTime(600, t + Math.max(0.06, n.decay));
       var g = ctx.createGain();
       env(g.gain, t, g0 * 0.8, 0.002, n.decay);
-      a.connect(lp); b.connect(lp); lp.connect(g); g.connect(bus); g.connect(delaySend);
+      a.connect(lp); b.connect(lp); lp.connect(g); g.connect(voiceOut); g.connect(delaySend);
       a.start(t); b.start(t);
       a.stop(t + n.decay + 0.08); b.stop(t + n.decay + 0.08);
     },
@@ -189,7 +194,7 @@
       o.start(t);
       o.stop(t + d + 0.03);
     }
-    bp.connect(hp); hp.connect(g); g.connect(bus);
+    bp.connect(hp); hp.connect(g); g.connect(voiceOut);
 
     if (isOpen) {
       openHatGain = g;
@@ -204,14 +209,17 @@
 
   function buildGraph() {
     comp = ctx.createDynamicsCompressor();
-    comp.threshold.value = -14;
-    comp.knee.value = 12;
-    comp.ratio.value = 6;
-    comp.attack.value = 0.003;
-    comp.release.value = 0.15;
+    comp.threshold.value = -10;
+    comp.knee.value = 22;
+    comp.ratio.value = 3;
+    comp.attack.value = 0.008;
+    comp.release.value = 0.22;
 
     bus = ctx.createGain();
     bus.gain.value = 0.9;
+    soloBus = ctx.createGain();
+    soloBus.gain.value = 1;
+    voiceOut = bus;
 
     delaySend = ctx.createGain();
     delaySend.gain.value = 0.18;
@@ -223,6 +231,7 @@
     delaySend._delay = dl;
 
     bus.connect(comp);
+    soloBus.connect(comp);
     comp.connect(ctx.destination);
 
     var len = Math.floor(ctx.sampleRate * 2);
@@ -233,8 +242,8 @@
 
   function applyAutoGain() {
     if (!bus) return;
-    var g = 0.9 / Math.sqrt(1 + noteCount / 16);
-    bus.gain.setTargetAtTime(g, ctx.currentTime, 0.05);
+    autoGain = 0.9 / Math.sqrt(1 + noteCount / 16);
+    bus.gain.setTargetAtTime(autoGain, ctx.currentTime, 0.05);
   }
 
   function stepDur(i) {
@@ -259,15 +268,20 @@
     return by;
   }
 
-  function playNote(n, t) {
+  function playNote(n, t, mul) {
     var v = VOICES[n.inst];
-    if (v) { try { v(t, n); } catch (e) {} }
+    if (!v) return;
+    var note = (mul === undefined || mul === 1) ? n
+      : { inst: n.inst, pitch: n.pitch, vel: n.vel * mul, decay: n.decay };
+    try { v(t, note); } catch (e) {}
   }
 
   function scheduleStep(i, t) {
     var list = pattern[i];
-    if (list) for (var k = 0; k < list.length; k++) playNote(list[k], t);
-    if (overlay && overlay.step === i) playNote(overlay, t);
+    var previewing = overlay && overlay.step === i;
+    var duck = previewing ? DUCK : 1;
+    if (list) for (var k = 0; k < list.length; k++) playNote(list[k], t, duck);
+    if (previewing) playNote(overlay, t, 1);
   }
 
   function applyPending() {
@@ -392,7 +406,18 @@
       if (now - lastAudition < AUDITION_GAP_MS) return;
       lastAudition = now;
       if (ctx.state === 'suspended') { ctx.resume().catch(function () {}); return; }
-      playNote({ inst: inst, pitch: pitch || 0, vel: vel == null ? 0.8 : vel, decay: decay == null ? 0.3 : decay }, ctx.currentTime + 0.01);
+      var at = ctx.currentTime + 0.01;
+      var note = { inst: inst, pitch: pitch || 0, vel: vel == null ? 0.8 : vel, decay: decay == null ? 0.3 : decay };
+      if (running) {
+        var bg = bus.gain;
+        bg.cancelScheduledValues(at);
+        bg.setValueAtTime(bg.value, at);
+        bg.linearRampToValueAtTime(autoGain * SOLO_DUCK, at + 0.02);
+        bg.linearRampToValueAtTime(autoGain, at + 0.42);
+      }
+      var prev = voiceOut;
+      voiceOut = soloBus;
+      try { playNote(note, at, 1); } finally { voiceOut = prev; }
     },
 
     onStep: function (fn) { stepHandlers.push(fn); },
