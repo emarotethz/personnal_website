@@ -1,8 +1,8 @@
 
 
-import { beatStore, readBeat, readLock, readFate, ipDeviceCount } from '../lib/store.mjs';
-import { publicNote, LOCK_MS, IP_EDIT_CAP } from '../lib/schema.mjs';
-import { mintToken, verifyToken, readToken, cookieHeader, ipHash } from '../lib/identity.mjs';
+import { beatStore, readBeat, readLock, readFate } from '../lib/store.mjs';
+import { publicNote, LOCK_MS } from '../lib/schema.mjs';
+import { mintToken, verifyToken, readToken, cookieHeader } from '../lib/identity.mjs';
 import { json, NO_STORE } from '../lib/http.mjs';
 
 export default async (req, context) => {
@@ -16,25 +16,17 @@ export default async (req, context) => {
     claim = await verifyToken(token, env);
   }
 
-  const [{ beat }, lock, fate, ip] = await Promise.all([
+  const [{ beat }, lock, fate] = await Promise.all([
     readBeat(store),
     readLock(store, claim.id),
     readFate(store, claim.id),
-    ipHash(req, env),
   ]);
 
   const now = Date.now();
   const spent = lock && !lock.pending && lock.usedAt && now - lock.usedAt < LOCK_MS;
 
-  let locked = false;
-  let reason = null;
-  if (spent) {
-    locked = true;
-    reason = 'used';
-  } else if ((await ipDeviceCount(store, ip.year, ip.hash)) >= IP_EDIT_CAP) {
-    locked = true;
-    reason = 'ip-cap';
-  }
+  const locked = !!spent;
+  const reason = spent ? 'used' : null;
 
   const mine = spent && lock.noteId ? beat.notes.find((n) => n.id === lock.noteId) : null;
 
@@ -43,7 +35,6 @@ export default async (req, context) => {
     version: beat.version,
     locked,
     reason,
-    cap: IP_EDIT_CAP,
     noteId: spent ? lock.noteId ?? null : null,
     kind: spent ? lock.kind ?? null : null,
     usedAt: spent ? lock.usedAt : null,

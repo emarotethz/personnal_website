@@ -138,15 +138,6 @@ export async function clearLock(store, tokenId) {
   await store.delete(lockKey(tokenId));
 }
 
-export async function ipDeviceCount(store, year, hash) {
-  const res = await store.list({ prefix: `ip/${year}/${hash}/` });
-  return res.blobs.length;
-}
-
-export async function markIpDevice(store, year, hash, tokenId) {
-  await store.setJSON(`ip/${year}/${hash}/${tokenId}`, { at: Date.now() }, { onlyIfNew: true });
-}
-
 export async function writeFate(store, ownerTokenId, fate) {
   if (!ownerTokenId || ownerTokenId === 'seed') return;
   await store.setJSON(fateKey(ownerTokenId), fate);

@@ -23,7 +23,6 @@ export const DECAY_MIN = 0.02;
 export const DECAY_MAX = 1.5;
 
 export const LOCK_MS = 365 * 24 * 60 * 60 * 1000;
-export const IP_EDIT_CAP = 10;
 export const PENDING_TTL_MS = 60 * 1000;
 export const LEDGER_MAX = 200;
 

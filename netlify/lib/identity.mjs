@@ -76,23 +76,6 @@ export function cookieHeader(token, req) {
   return `${COOKIE_NAME}=${encodeURIComponent(token)}; Path=/; Max-Age=${maxAge}; HttpOnly${secure}; SameSite=Lax`;
 }
 
-export function clientIp(req, env) {
-  if (env.ALLOW_DEBUG_IP === 'true') {
-    const dbg = req.headers.get('x-debug-ip');
-    if (dbg) return dbg;
-  }
-  const nf = req.headers.get('x-nf-client-connection-ip');
-  if (nf) return nf;
-  const fwd = req.headers.get('x-forwarded-for');
-  if (fwd) return fwd.split(',')[0].trim();
-  return '0.0.0.0';
-}
-
-export async function ipHash(req, env) {
-  const year = new Date().getUTCFullYear();
-  return { year, hash: await hmacHex(secretsOf(env)[0], `ip:${clientIp(req, env)}:${year}`) };
-}
-
 export function country(context) {
   return context?.geo?.country?.code || '??';
 }

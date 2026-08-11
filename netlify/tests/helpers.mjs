@@ -9,7 +9,7 @@ export const J = { 'content-type': 'application/json' };
 
 if (!IS_LOCAL && process.env.UB_TEST_REMOTE_OK !== '1') {
   console.error(`\nRefusing to run against ${BASE}.\n` +
-    'These tests write real edits and consume real per-IP quota.\n' +
+    'These tests write real edits and spend real device edits.\n' +
     'To run against a deploy preview, set UB_TEST_REMOTE_OK=1.\n');
   process.exit(2);
 }
@@ -29,29 +29,26 @@ export function finish() {
 
 export const nonce = (tag, i) => `${tag}-${i}-${Math.random().toString(36).slice(2, 10)}`;
 
-let ipSeq = 0;
-export const debugIp = () => `10.${(ipSeq++ % 250) + 1}.${Math.floor(Math.random() * 250)}.7`;
-
 export async function getBeat() {
   return (await fetch(`${BASE}/api/beat`)).json();
 }
 
-export async function newDevice(ip = debugIp()) {
-  const r = await fetch(`${BASE}/api/me`, { headers: { 'X-Debug-IP': ip } });
+export async function newDevice() {
+  const r = await fetch(`${BASE}/api/me`);
   const body = await r.json();
   const cookie = (r.headers.getSetCookie?.() || []).map((c) => c.split(';')[0]).join('; ');
-  return { token: body.token, cookie, ip, me: body };
+  return { token: body.token, cookie, me: body };
 }
 
 export async function me(dev) {
-  const h = { 'X-Debug-IP': dev.ip };
+  const h = {};
   if (dev.cookie) h.cookie = dev.cookie;
   else if (dev.token) h['X-Beat-Token'] = dev.token;
   return (await fetch(`${BASE}/api/me`, { headers: h })).json();
 }
 
 export async function edit(dev, body, opts = {}) {
-  const h = { ...J, 'X-Debug-IP': dev.ip };
+  const h = { ...J };
   if (opts.viaHeader) h['X-Beat-Token'] = dev.token;
   else if (dev.cookie) h.cookie = dev.cookie;
   else if (dev.token) h['X-Beat-Token'] = dev.token;

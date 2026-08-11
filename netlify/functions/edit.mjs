@@ -2,13 +2,12 @@
 
 import { purgeCache } from '@netlify/functions';
 import {
-  beatStore, readBeat, casBeat, reserveLock, finalizeLock, releaseLock,
-  ipDeviceCount, markIpDevice, writeFate,
+  beatStore, readBeat, casBeat, reserveLock, finalizeLock, releaseLock, writeFate,
 } from '../lib/store.mjs';
 import {
-  publicBeat, newNoteId, slotOf, PITCHED, MAX_NOTES, IP_EDIT_CAP, LOCK_MS, LEDGER_MAX,
+  publicBeat, newNoteId, slotOf, PITCHED, MAX_NOTES, LOCK_MS, LEDGER_MAX,
 } from '../lib/schema.mjs';
-import { verifyToken, readToken, cookieHeader, ipHash, country } from '../lib/identity.mjs';
+import { verifyToken, readToken, cookieHeader, country } from '../lib/identity.mjs';
 import { json, fail, readJsonBody, NO_STORE } from '../lib/http.mjs';
 import { validateEdit } from '../lib/validate.mjs';
 
@@ -50,12 +49,6 @@ export default async (req, context) => {
       noteId: res.lock?.noteId ?? null,
       lockedUntil: res.lock?.usedAt ? res.lock.usedAt + LOCK_MS : null,
     });
-  }
-
-  const ip = await ipHash(req, env);
-  if ((await ipDeviceCount(store, ip.year, ip.hash)) >= IP_EDIT_CAP) {
-    await releaseLock(store, claim.id, edit.nonce);
-    return fail(403, 'ip-cap', { cap: IP_EDIT_CAP });
   }
 
   const cc = country(context);
@@ -129,7 +122,6 @@ export default async (req, context) => {
       kind: edit.op,
       placed,
     }),
-    markIpDevice(store, ip.year, ip.hash, claim.id),
     extra.victim
       ? writeFate(store, extra.victim.owner, {
           kind: edit.op === 'remove' ? 'removed' : 'modified',

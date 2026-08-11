@@ -31,7 +31,7 @@ for (const [label, body, field] of bad) {
 }
 const noNonce = await edit(v, { op: 'add', inst: 'kick', step: 1 });
 check('missing nonce', [noNonce.status, noNonce.body.field], [400, 'nonce']);
-const forged = await edit({ ip: v.ip, token: 'v1.11111111-2222-3333-4444-555555555555.20000.AAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
+const forged = await edit({ token: 'v1.11111111-2222-3333-4444-555555555555.20000.AAAAAAAAAAAAAAAAAAAAAAAAAAAA' },
   { op: 'add', inst: 'kick', step: 1, nonce: nonce('forge', 0) }, { viaHeader: true });
 check('forged token is rejected', [forged.status, forged.body.error], [401, 'bad-token']);
 check('none of that spent the edit', (await me(v)).locked, false);
@@ -44,7 +44,7 @@ check('the first edit commits', first.status, 200);
 const second = await edit(d, { op: 'add', ...slot(), vel: 0.7, decay: 0.2, nonce: nonce('second', 2) });
 check('a second edit is refused', [second.status, second.body.error], [403, 'locked']);
 check('locked via the cookie', (await me(d)).locked, true);
-check('locked via the header token alone', (await me({ ip: d.ip, token: d.token })).locked, true);
+check('locked via the header token alone', (await me({ token: d.token })).locked, true);
 
 section('[3] resending the same nonce replays, it does not double-commit');
 const d2 = await newDevice();

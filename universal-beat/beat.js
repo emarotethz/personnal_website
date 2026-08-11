@@ -391,10 +391,7 @@
           return refresh().then(function () { paint(); renderInspector(); });
         }
 
-        if (res.status === 403 && res.j.error === 'ip-cap') {
-          banner('Already claimed here',
-            'Ten people have already edited from this network. Offices, universities and mobile carriers all share one address, so this can happen even if you have never been here before.', true);
-        } else if (res.status === 403) {
+        if (res.status === 403) {
           banner('You have already played', 'This device has made its edit.', true);
         } else {
           banner('That did not go through', 'Nothing was committed and your edit is still yours. Try again.');
@@ -452,12 +449,6 @@
     var el = $('budget');
     var me = S.me;
     if (!me) return;
-    if (me.locked && me.reason === 'ip-cap') {
-      el.hidden = false;
-      el.dataset.state = 'capped';
-      el.textContent = 'This network has used its edits';
-      return;
-    }
     if (me.locked) {
       el.hidden = false;
       el.dataset.state = 'spent';

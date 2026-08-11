@@ -29,6 +29,12 @@ export default async (req) => {
     }, { headers: NO_STORE });
   }
 
+  if (action === 'purgeIp') {
+    const res = await store.list({ prefix: 'ip/' });
+    await Promise.all(res.blobs.map((b) => store.delete(b.key)));
+    return json({ ok: true, purged: res.blobs.length }, { headers: NO_STORE });
+  }
+
   if (action === 'unlock') {
     const { tokenId } = parsed.body;
     if (typeof tokenId !== 'string' || !/^[0-9a-f-]{36}$/.test(tokenId)) return fail(400, 'invalid', { field: 'tokenId' });
