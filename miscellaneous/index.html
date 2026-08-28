@@ -76,6 +76,8 @@
   .seq i.on{background:var(--accent)}
   .seq i.half{background:rgba(232,90,26,0.45)}
 
+  .duel{display:block;width:100%;height:auto;background:#000;border-radius:8px;border:2px solid var(--ink)}
+
   footer{margin-top:52px;padding-top:20px;border-top:2px dashed var(--line);display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;font-size:14.5px;color:var(--dim)}
   footer a{font-weight:700}
   footer a:hover{color:var(--accent);text-decoration:underline wavy}
@@ -107,8 +109,44 @@
         <i class="on"></i><i></i><i></i><i class="half"></i><i></i><i></i><i class="on"></i><i></i>
       </div>
       <h2>universal beat</h2>
-      <p>One drum loop that the whole internet shares. You can add a note, retune a note, or delete somebody else's note. You get to do that exactly once, and then you can only listen while other people take your work apart.</p>
+      <p>One drum loop that the whole internet shares. You get one edit, and then you can only listen.</p>
       <span class="go">go and ruin it →</span>
+    </a>
+
+    <a class="tile" href="/learning-curve/">
+      <svg class="duel" viewBox="0 0 400 200" aria-hidden="true">
+        <g fill="none" stroke="rgba(243,241,236,0.30)" stroke-width="1.8" stroke-linejoin="round">
+          <path d="M283.5 155 280.7 176.6 259.1 178 239.3 182.3 231 163.7 224 143.7 243 134.2 260.2 125.5 279.8 134.2Z"/>
+          <path d="M90 52 90.5 67.6 75.4 71.1 59.7 73.3 55.5 58 50.3 44.1 62.5 35.6 76.2 28.2 87.5 39Z"/>
+          <path d="M30.5 112 30.3 124 18.4 125.4 6.8 127.9 1.9 117.1 -0.8 105.9 9 100 19.3 93.3 28.4 101.6Z"/>
+        </g>
+        <g fill="none" stroke="#E85A1A">
+          <path d="M280 80 197.5 121.7" stroke-width="1.5" stroke-dasharray="3 4.5" opacity=".5"/>
+          <g stroke-width="1.9">
+            <circle cx="185" cy="128" r="12"/>
+            <path d="M165.5 128h5.5M199 128h5.5M185 108.5v5.5M185 142v5.5"/>
+          </g>
+        </g>
+        <g fill="#f3f1ec">
+          <rect x="149" y="95" width="6" height="6"/>
+          <rect x="173" y="71" width="6" height="6"/>
+          <rect x="197" y="47" width="6" height="6"/>
+        </g>
+        <g fill="#E85A1A">
+          <rect x="251.1" y="90.3" width="6" height="6"/>
+          <rect x="220.7" y="105.6" width="6" height="6"/>
+        </g>
+        <g fill="none" stroke-width="2.4" stroke-linejoin="round" stroke-linecap="round">
+          <g stroke="#f3f1ec" transform="translate(110 140) rotate(-45)">
+            <path d="M25.5 0 -13.5 13.5 -7.5 0 -13.5 -13.5Z"/>
+            <path d="M-13.5 0h-13.5"/>
+          </g>
+          <path stroke="#E85A1A" transform="translate(300 70) rotate(153)" d="M25.5 0 -13.5 13.5 -7.5 0 -13.5 -13.5Z"/>
+        </g>
+      </svg>
+      <h2>learning curve</h2>
+      <p>A two-ship space duel against a neural network trained via double DQN. It starts from random weights and gets better while you play.</p>
+      <span class="go">play it →</span>
     </a>
 
     <div class="tile empty">
