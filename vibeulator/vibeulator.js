@@ -8,7 +8,7 @@
 var $ = function (id) { return document.getElementById(id); };
 var Calc = window.VibCalc;
 var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
-var WEIGHTS = 'vibeulator.bin?v=5', EVAL = 'eval.json?v=16';
+var WEIGHTS = 'vibeulator.bin?v=5', EVAL = 'eval.json?v=17';
 var MAXK = 30, DELAY = reduce ? 0 : 70, TEMP = 1;   // MAXK becomes the model's own limit once it loads
 
 var SHOW = { '*': '×', '/': '÷', '-': '−', 'r': '√', 's': 'sin', 'c': 'cos', 't': 'tan', 'l': 'log', 'n': 'ln', 'p': 'π',
@@ -82,15 +82,15 @@ function macs(n) {
   return total;
 }
 
-// How far off an answer is, in percent, scored the way evaluate.py scores the
-// error-by-length chart: 0 when exact, null when there's no number to compare.
+// How far off an answer is, in percent of the bigger of the two numbers, scored the
+// way evaluate.py scores the error-by-length chart: 0 when exact, null when there's
+// no number to compare. Too big and too small count the same: 10 times off either
+// way is 90%, and 0, the wrong sign or something wildly too big are all 100%.
 var NUM = /^-?\d+(\.\d+)?(e-?\d+)?$/;
 function offBy(text, truth) {
   if (text === truth) return 0;
-  if (!NUM.test(truth) || !NUM.test(text)) return null;
-  var p = Number(text), t = Number(truth);
-  var off = (t === 0 ? Math.abs(p) : Math.abs(p - t) / Math.abs(t)) * 100;
-  return isFinite(off) ? off : null;
+  var e = signed(text, truth);
+  return e === null ? null : Math.abs(e);
 }
 
 // A % error that always keeps its % sign: from six digits up it goes to
@@ -249,7 +249,7 @@ function renderPair() {
   setV('right', showAll(r.truth), word(r.truth) ? 'word' : '');
   var off = offBy(r.text, r.truth);
   if (off !== null) {
-    // signed, so a dropped digit reads as −90% (too low) and an extra one as +900% (too high)
+    // signed, so a dropped digit reads as −90% (too low) and an extra one as +90% (too high)
     var sg = off < 0.01 ? 0 : signed(r.text, r.truth);   // '<0.01%' needs no direction
     setV('err', (sg > 0 ? '+' : sg < 0 ? '−' : '') + offText(off), off > 1 ? 'off' : '');
     return;
@@ -339,22 +339,24 @@ function spread(lg) {
 
 var hundred = null;   // { result, bins, n, start, target, dom } for the answer on screen
 
-// The signed error of one answer in percent, below zero when it came out too low;
-// null when either side isn't a number.
+// The signed error of one answer in percent of the bigger number, below zero when it
+// came out too low; null when either side isn't a number.
 function signed(text, truth) {
   if (!NUM.test(text) || !NUM.test(truth)) return null;
   var p = Number(text), t = Number(truth);
-  var e = p === t ? 0 : (t === 0 ? p : (p - t) / Math.abs(t)) * 100;
-  return isFinite(e) ? e : null;
+  if (!isFinite(p) || !isFinite(t)) return null;
+  if (p === t) return 0;
+  // a wrong sign comes out above 100%: it is as wrong as 0
+  return (p > t ? 1 : -1) * Math.min(100, Math.abs(p - t) / Math.max(Math.abs(p), Math.abs(t)) * 100);
 }
 
-// Eleven bins a decade wide on each side of exact, then one for answers that
-// weren't numbers at all: <-100, -100..-10, -10..-1, -1..-0.1, -0.1..0, exact,
-// 0..0.1, 0.1..1, 1..10, 10..100, >100, not a number.
+// Eleven bins, a decade wide on each side of exact up to 10%, then one for answers
+// that weren't numbers at all: -100..-90 (over 10 times too low), -90..-10, -10..-1,
+// -1..-0.1, -0.1..0, exact, 0..0.1, 0.1..1, 1..10, 10..90, 90..100, not a number.
 function bin(e) {
   if (e === null) return 11;
   if (e === 0) return 5;
-  var a = Math.abs(e), k = a > 100 ? 0 : a > 10 ? 1 : a > 1 ? 2 : a > 0.1 ? 3 : 4;
+  var a = Math.abs(e), k = a > 90 ? 0 : a > 10 ? 1 : a > 1 ? 2 : a > 0.1 ? 3 : 4;
   return e < 0 ? k : 10 - k;
 }
 
@@ -417,8 +419,8 @@ function renderHundred() {
 function buildHundred(out, h) {
   out.textContent = '';
   var hist = el('div', 'hist'), cols = [];
-  var names = ['under −100%', '−100% to −10%', '−10% to −1%', '−1% to −0.1%', '−0.1% to 0', 'exact',
-               '0 to +0.1%', '+0.1% to +1%', '+1% to +10%', '+10% to +100%', 'over +100%', 'not a number'];
+  var names = ['−100% to −90%', '−90% to −10%', '−10% to −1%', '−1% to −0.1%', '−0.1% to 0', 'exact',
+               '0 to +0.1%', '+0.1% to +1%', '+1% to +10%', '+10% to +90%', '+90% to +100%', 'not a number'];
   names.forEach(function (name, i) {
     if (i === 11) hist.appendChild(el('span'));
     var c = el('div', 'c' + (i === 5 ? ' ok' : i === 11 ? ' nan' : '')), n = el('b'), bar = el('i');
@@ -432,7 +434,7 @@ function buildHundred(out, h) {
   hist.appendChild(el('span'));
   hist.appendChild(el('span', 'base2'));
   var ax = el('div', 'ax');
-  [[1, '−100%'], [2, '−10%'], [3, '−1%'], [4, '−0.1%'], [5.5, 'exact'], [7, '+0.1%'], [8, '+1%'], [9, '+10%'], [10, '+100%']]
+  [[1, '−90%'], [2, '−10%'], [3, '−1%'], [4, '−0.1%'], [5.5, 'exact'], [7, '+0.1%'], [8, '+1%'], [9, '+10%'], [10, '+90%']]
     .forEach(function (t) { var s = el('span', '', t[1]); s.style.left = (t[0] / 11 * 100).toFixed(2) + '%'; ax.appendChild(s); });
   hist.appendChild(ax);
   hist.appendChild(el('span'));
@@ -496,7 +498,7 @@ function renderDetail() {
   d.appendChild(el('h3', '', n + (n === 1 ? ' token' : ' tokens')));
   d.appendChild(el('p', 'sum', 'Median error ' + offText(median(r)) + ', ' + Math.round(r.exact * 100) + '% exactly right.'));
   var sp = el('div', 'split');
-  ['Exact', 'Within 1%', '1 to 10%', '10 to 100%', 'Over 100%', 'Not a number'].forEach(function (k, j) {
+  ['Exact', 'Within 1%', '1 to 10%', '10 to 90%', 'Over 90%', 'Not a number'].forEach(function (k, j) {
     if (r.split[j] === undefined) return;
     var tr = el('span', 'tr'), f = el('i', j >= 4 ? 'hot' : '');
     f.style.width = (r.split[j] * 100).toFixed(1) + '%';
