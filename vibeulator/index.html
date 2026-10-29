@@ -1,0 +1,325 @@
+<!doctype html>
+<!--
+  Design adapted from https://sgs-rl.github.io/ by Mateo Guaman Castro, licensed
+  CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Changed: dark colours,
+  and the layout reworked around a calculator.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>vibeulator</title>
+<meta name="robots" content="noindex,nofollow" />
+<link rel="icon" href="../media/browser_icon.svg?v=2" type="image/svg+xml" />
+<link rel="icon" href="../media/icon-32.png?v=2" sizes="32x32" type="image/png" />
+<link rel="apple-touch-icon" href="../media/icon-180.png?v=2" />
+<meta name="theme-color" content="#000000" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Math&text=%CF%80%E2%88%9A&display=swap" rel="stylesheet" />
+<script src="calc.js?v=9" defer></script>
+<script src="engine.js?v=1" defer></script>
+<script src="vibeulator.js?v=40" defer></script>
+<style>
+  :root{
+    --bg: #000;
+    --ink: #f3f1ec;
+    --mute: #8d887f;
+    --hair: rgba(243,241,236,0.16);
+    --faint: rgba(243,241,236,0.07);
+    --accent: #E85A1A;
+    --font: 'Inter Tight', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.4;letter-spacing:-0.01em;-webkit-font-smoothing:antialiased}
+  a{color:inherit}
+  button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;letter-spacing:inherit;text-align:inherit}
+  ::selection{background:var(--accent);color:#000}
+  .wrap{max-width:1280px;margin:0 auto;padding:0 16px}
+  hr{border:0;border-top:1px solid var(--ink)}
+  /* π and √ come from a maths font: Inter Tight draws them small and thin */
+  .m{font-family:'Noto Sans Math','Inter Tight',sans-serif;font-weight:400}
+  /* √ is drawn, so it matches the text it sits in at any size */
+  .rt{display:inline-block;width:.68em;height:.92em;vertical-align:-.1em;margin-right:.04em;fill:none;stroke:currentColor;stroke-width:1.05;stroke-linecap:round;stroke-linejoin:round}
+
+
+  header{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 32px;align-items:end;padding:18px 0 18px}
+  h1{font-size:clamp(64px,12vw,156px);font-weight:500;letter-spacing:-0.035em;line-height:.85;margin-left:-0.03em}
+  .sub{max-width:30ch;padding-bottom:6px}
+  .sub p:first-child{font-size:clamp(20px,2.2vw,26px);letter-spacing:-0.025em;line-height:1.12}
+  .facts{font-size:13px;color:var(--mute);margin-top:10px}
+  @media (max-width:760px){header{grid-template-columns:1fr}}
+
+  .lede{font-size:clamp(21px,2.5vw,30px);font-weight:300;letter-spacing:-0.025em;line-height:1.2;max-width:30em;padding:22px 0 30px}
+  .lede b{font-weight:600}
+
+  /* ---- the calculator and what it said ---- */
+  .stage{display:grid;grid-template-columns:minmax(0,1fr);gap:28px;padding:24px 0 48px}
+  @media (min-width:900px){.stage{grid-template-columns:360px minmax(0,1fr);gap:48px}}
+
+  .calc{border:1px solid var(--hair);align-self:start}
+  .screen{padding:10px 14px 10px;min-height:108px;display:flex;flex-direction:column;justify-content:space-between;border-bottom:1px solid var(--hair)}
+  .sline{display:flex;justify-content:space-between;align-items:baseline;gap:12px;min-height:21px}
+  .mode{font-size:11px;letter-spacing:0.04em;color:var(--mute)}
+  .expr{flex:1;min-width:0;font-size:15px;color:var(--mute);text-align:right;white-space:nowrap;overflow-x:auto;scrollbar-width:none}
+  .expr::-webkit-scrollbar,.toks::-webkit-scrollbar{display:none}
+  .ans{height:52px;line-height:52px;font-size:42px;font-weight:300;letter-spacing:-0.03em;text-align:right;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .ans.long{font-size:32px}
+  .ans.longer{font-size:26px}
+  .ans.idle{color:var(--hair)}
+  .ans.msg{font-size:26px}
+  .caret{display:inline-block;width:2px;height:.8em;margin-left:3px;background:var(--ink);vertical-align:-0.05em;animation:blink .9s steps(1) infinite}
+  @keyframes blink{50%{opacity:0}}
+  .keys{display:grid;grid-template-columns:repeat(5,1fr);grid-auto-rows:50px;gap:1px;background:var(--hair)}
+  .key{background:var(--bg);font-size:21px;font-weight:300;line-height:1;text-align:center;display:flex;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;transition:background .08s ease}
+  .key.fn{font-size:15px;font-weight:400}
+  .key sup{font-size:.62em;line-height:0;position:relative;top:-.55em;vertical-align:baseline;margin-left:1px}
+  .key .rt{width:.8em;height:1.05em;stroke-width:1}
+  .key svg:not(.rt){width:22px;height:16px;stroke:currentColor;fill:none;stroke-width:1.4;stroke-linejoin:round;stroke-linecap:round}
+  .key:hover{background:#141414}
+  .key.hit,.key:active{background:#262626}
+  .key:focus-visible{outline:1px solid var(--ink);outline-offset:-2px}
+  .key.deg{font-size:12px;letter-spacing:0.04em;gap:6px;color:var(--mute)}
+  .key.deg b{font-weight:400}
+  .key.deg b.on{color:var(--ink)}
+  .key.eq{grid-column:4 / span 2;grid-row:6 / span 2;font-size:30px}
+  .label{font-size:13px;color:var(--mute)}
+  .pair{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--ink)}
+  .pair > div{padding:8px 16px 14px 0;min-width:0}
+  .pair > div + div{border-left:1px solid var(--hair);padding-left:16px}
+  .v{display:block;height:52px;line-height:52px;margin-top:2px;font-size:clamp(26px,3.4vw,42px);letter-spacing:-0.035em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .v.long{font-size:clamp(20px,2.4vw,30px)}
+  .v.longer{font-size:clamp(17px,1.8vw,23px)}
+  .v.word{display:flex;align-items:center;line-height:1.1;white-space:normal;font-size:clamp(18px,1.9vw,23px)}
+  .v.off{color:var(--accent)}
+  @media (max-width:560px){.pair{grid-template-columns:1fr}.pair > div + div{border-left:0;border-top:1px solid var(--hair);padding-left:0}}
+  .waste{font-size:14px;color:var(--mute);border-top:1px solid var(--hair);padding-top:8px;min-height:30px}
+
+  .sure{border-top:1px solid var(--ink);margin-top:26px;padding-top:8px}
+  .toks{height:350px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;margin-top:12px}
+  .tg{display:grid;gap:6px;width:max-content;align-items:center}
+  .tl{font-size:12.5px;color:var(--mute);white-space:nowrap}
+  .tbody{width:max-content;height:218px;overflow-y:auto;overflow-x:hidden;scrollbar-width:none;margin-top:6px}
+  .sq.new{animation:pop .2s ease-out}
+  @keyframes pop{from{opacity:0;transform:translateY(5px)}}
+  .tbody::-webkit-scrollbar{display:none}
+  .tbody.down{-webkit-mask-image:linear-gradient(to bottom,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(to bottom,#000 calc(100% - 48px),transparent)}
+  .tbody.up{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 36px);mask-image:linear-gradient(to bottom,transparent,#000 36px)}
+  .tbody.up.down{-webkit-mask-image:linear-gradient(to bottom,transparent,#000 36px,#000 calc(100% - 48px),transparent);mask-image:linear-gradient(to bottom,transparent,#000 36px,#000 calc(100% - 48px),transparent)}
+  .sq{position:relative;width:64px;height:58px;display:flex;flex-direction:column;align-items:center;justify-content:center;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .sq .t{font-size:24px;line-height:1;letter-spacing:-0.02em}
+  .sq .t.wd{font-size:16px;letter-spacing:0}
+  .sq .p{font-size:13px;line-height:1;margin-top:5px}
+  .sq.ref{box-shadow:inset 0 0 0 1px var(--hair);color:var(--mute)}
+  .sq.ref.diff{box-shadow:inset 0 0 0 1px var(--ink);color:var(--ink)}
+  .sq.mine{background:var(--ink);color:#000}
+  .sq.bad{background:var(--accent);color:#000}
+  .sq.dark{color:#000}
+  .sq.hit{box-shadow:inset 0 0 0 2px var(--ink)}
+  .sq.hit.dark{box-shadow:inset 0 0 0 2px #000}
+  .sq.hit::after{content:'\2713';position:absolute;top:4px;right:6px;font-size:12px}
+  .hundred{border-top:1px solid var(--ink);margin-top:26px;padding-top:12px}
+  .hhead{display:flex;align-items:center;gap:16px}
+  .hbtn{font-size:15px;border:1px solid var(--ink);padding:8px 14px;flex:none;text-align:center}
+  #h100{width:13.5em}
+  .hbtn:hover{background:#141414}
+  .hbtn[disabled]{color:var(--mute);border-color:var(--hair);cursor:default;background:none}
+  .hbtn.soft{border-color:var(--hair);color:var(--mute)}
+  .hbtn.soft:hover{color:var(--ink)}
+  .hbtn.gone{visibility:hidden}
+  .hline{flex:1;height:2px;background:var(--faint);opacity:0;transition:opacity .4s ease}
+  .hline.on{opacity:1}
+  .hline i{display:block;height:100%;width:0;background:var(--ink);transition:width .12s linear}
+  .hres{height:206px}
+  .hres:empty{height:0}
+  .hist{margin-top:18px;display:grid;grid-template-columns:repeat(11,minmax(0,1fr)) 18px minmax(0,1fr);column-gap:4px;max-width:720px}
+  .hist .c{height:150px;display:flex;flex-direction:column;justify-content:flex-end;align-items:stretch}
+  .hist .c b{font-weight:400;font-size:12px;color:var(--mute);text-align:center;margin-bottom:3px;font-variant-numeric:tabular-nums;min-height:15px}
+  .hist .c i{display:block;height:0;background:var(--accent);transition:height .15s ease-out}
+  .hist .c.ok i{background:var(--ink)}
+  .hist .c.nan i{background:var(--mute)}
+  .hist .base{grid-column:1 / 12;border-top:1px solid var(--ink)}
+  .hist .base2{grid-column:13;border-top:1px solid var(--hair)}
+  .hist .ax{grid-column:1 / 12;position:relative;height:18px;font-size:11.5px;color:var(--mute);font-variant-numeric:tabular-nums}
+  .hist .ax span{position:absolute;top:4px;transform:translateX(-50%);white-space:nowrap}
+  .hist .ax2{grid-column:13;font-size:11.5px;color:var(--mute);text-align:center;padding-top:4px;line-height:1.2}
+
+
+  /* ---- sections below ---- */
+  section.more{padding-bottom:56px}
+  h2{font-size:clamp(40px,6.5vw,80px);font-weight:400;letter-spacing:-0.05em;line-height:1;padding:10px 0 14px}
+  .more > p{font-size:clamp(18px,1.9vw,22px);font-weight:300;letter-spacing:-0.02em;line-height:1.25;max-width:40em;margin:18px 0 26px}
+  .more > p b{font-weight:600}
+
+  .lenwrap{display:grid;grid-template-columns:minmax(0,1fr);gap:28px}
+  @media (min-width:1000px){.lenwrap{grid-template-columns:minmax(0,1fr) 360px;gap:48px}}
+  .lenmain{display:flex;flex-direction:column;min-width:0}
+  .chart{flex:1;display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:minmax(220px,1fr) auto auto;margin-top:20px}
+  .yax{position:relative;font-size:12px;color:var(--mute);font-variant-numeric:tabular-nums}
+  .yax span{position:absolute;right:10px;transform:translateY(-50%)}
+  .plot{position:relative;border-bottom:1px solid var(--ink)}
+  .plot .grid{position:absolute;left:0;right:0;border-top:1px solid var(--faint)}
+  .cols{position:absolute;inset:0;display:grid;grid-template-columns:repeat(30,minmax(0,1fr))}
+  .cols button{position:relative;height:100%;padding:0 1.5px}
+  .cols button i{position:absolute;left:1.5px;right:1.5px;bottom:0;background:var(--ink);opacity:.62;min-height:1px}
+  .cols button.zero i{opacity:.25}
+  .cols button:hover i,.cols button.sel i{opacity:1}
+  .cols button.sel::before{content:'';position:absolute;top:0;bottom:0;left:1.5px;right:1.5px;background:var(--faint)}
+  .cols button.you i{background:var(--accent);opacity:1}
+  .cols button:focus-visible{outline:1px solid var(--ink);outline-offset:-1px}
+  .xax{grid-column:2;display:grid;grid-template-columns:repeat(30,minmax(0,1fr));font-size:12px;color:var(--mute);padding-top:5px;text-align:center;font-variant-numeric:tabular-nums}
+  .xax .sel{color:var(--ink)}
+  .xcap{grid-column:2;font-size:12px;color:var(--mute);text-align:right;margin-top:2px}
+
+  .detail{padding-top:22px;min-width:0}
+  .detail h3{font-size:30px;font-weight:400;letter-spacing:-0.035em;line-height:1.05;margin:6px 0 2px}
+  .detail .sum{font-size:15px;color:var(--mute)}
+  .split{display:grid;grid-template-columns:86px minmax(0,1fr) 40px;gap:6px 10px;align-items:center;font-size:13px;margin:16px 0 18px}
+  .split .k{color:var(--mute)}
+  .split .tr{height:6px;background:var(--faint)}
+  .split .tr i{display:block;height:100%;background:var(--ink)}
+  .split .tr i.hot{background:var(--accent)}
+  .split .n{text-align:right;font-variant-numeric:tabular-nums}
+  .ex{border-top:1px solid var(--hair);padding:8px 0 10px}
+  .ex button{display:block;max-width:100%;font-size:17px;letter-spacing:-0.02em;margin:3px 0 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .ex button:hover{text-decoration:underline;text-underline-offset:3px}
+  .ex .r{font-size:13px;color:var(--mute);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+  .ex .r b{font-weight:400;color:var(--ink)}
+  .ex .r b.off{color:var(--accent)}
+
+  .fams{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px 40px;max-width:1100px}
+  @media (max-width:900px){.fams{grid-template-columns:1fr}}
+  .fam h4{font-size:13px;font-weight:400;color:var(--mute);border-bottom:1px solid var(--ink);padding-bottom:5px;margin-bottom:2px}
+  .frow{display:grid;grid-template-columns:minmax(0,1fr) 44px;column-gap:10px;width:100%;padding:6px 0 5px;border-bottom:1px solid var(--faint);font-size:14px}
+  .frow:hover .fl{text-decoration:underline;text-underline-offset:3px}
+  .frow .fv{text-align:right;font-variant-numeric:tabular-nums}
+  .frow .fb{grid-column:1 / -1;position:relative;height:2px;margin-top:5px;background:var(--faint)}
+  .frow .fb i{position:absolute;left:0;top:0;bottom:0}
+  .frow .fb .c{background:var(--hair)}
+  .frow .fb .x{background:var(--ink)}
+  footer{border-top:1px solid var(--ink);padding:10px 0 28px;display:flex;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;font-size:13px;color:var(--mute)}
+  footer nav{display:flex;gap:16px}
+  footer a{text-decoration:none}
+  footer a:hover{color:var(--ink);text-decoration:underline}
+  footer .credit{flex-basis:100%;font-size:11.5px;opacity:.75}
+
+  @media (prefers-reduced-motion: reduce){.caret{animation:none}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+
+  <header>
+    <h1>Vibeulator</h1>
+    <div class="sub">
+      <p>The world&rsquo;s worst and most wasteful calculator.</p>
+      <p class="facts" id="facts">Loading the weights&hellip;</p>
+    </div>
+  </header>
+  <hr />
+
+  <p class="lede"><b>2 + 2 is probably 4.</b> A small transformer, the same kind of model as a chatbot, reads your sum one key at a time and predicts the answer one token at a time.</p>
+  <hr />
+
+  <div class="stage">
+
+    <section class="calc" aria-label="Calculator">
+      <div class="screen">
+        <div class="sline"><span class="mode" id="mode">DEG</span><span class="expr" id="expr"></span></div>
+        <div class="ans idle" id="ans" aria-live="polite">0</div>
+      </div>
+      <div class="keys">
+        <button class="key deg" type="button" data-k="MODE" aria-label="degrees or radians"><b class="on">DEG</b><b>RAD</b></button>
+        <button class="key fn" type="button" data-k="s">sin</button>
+        <button class="key fn" type="button" data-k="c">cos</button>
+        <button class="key fn" type="button" data-k="t">tan</button>
+        <button class="key fn" type="button" data-k="AC">AC</button>
+
+        <button class="key fn" type="button" data-k="l">log</button>
+        <button class="key fn" type="button" data-k="n">ln</button>
+        <button class="key" type="button" data-k="EXP" aria-label="e to the x">e<sup>x</sup></button>
+        <button class="key" type="button" data-k="SQ" aria-label="squared">x<sup>2</sup></button>
+        <button class="key" type="button" data-k="^" aria-label="power">x<sup>y</sup></button>
+
+        <button class="key" type="button" data-k="p" aria-label="pi"><span class="m">&pi;</span></button>
+        <button class="key" type="button" data-k="e">e</button>
+        <button class="key" type="button" data-k="r" aria-label="square root"><svg class="rt" viewBox="0 0 11 14" aria-hidden="true"><path d="M.8 8.4 2.7 7.3 5.2 12.9 9 1.1H10.6"/></svg></button>
+        <button class="key" type="button" data-k="(">(</button>
+        <button class="key" type="button" data-k=")">)</button>
+
+        <button class="key" type="button" data-k="7">7</button>
+        <button class="key" type="button" data-k="8">8</button>
+        <button class="key" type="button" data-k="9">9</button>
+        <button class="key" type="button" data-k="*" aria-label="times">&times;</button>
+        <button class="key" type="button" data-k="/" aria-label="divide">&divide;</button>
+
+        <button class="key" type="button" data-k="4">4</button>
+        <button class="key" type="button" data-k="5">5</button>
+        <button class="key" type="button" data-k="6">6</button>
+        <button class="key" type="button" data-k="+" aria-label="plus">+</button>
+        <button class="key" type="button" data-k="-" aria-label="minus">&minus;</button>
+
+        <button class="key" type="button" data-k="1">1</button>
+        <button class="key" type="button" data-k="2">2</button>
+        <button class="key" type="button" data-k="3">3</button>
+        <button class="key eq" type="button" data-k="=">=</button>
+
+        <button class="key" type="button" data-k="0">0</button>
+        <button class="key" type="button" data-k=".">.</button>
+        <button class="key" type="button" data-k="DEL" aria-label="delete"><svg viewBox="0 0 22 16" aria-hidden="true"><path d="M7 1.5h12.5v13H7L1.5 8z"/><path d="M10.5 5.5l5 5M15.5 5.5l-5 5"/></svg></button>
+      </div>
+    </section>
+
+    <section aria-label="What it said">
+      <div class="pair">
+        <div><span class="label">Vibeulator says</span><span class="v" id="said">&mdash;</span></div>
+        <div><span class="label">Correct answer</span><span class="v" id="right">&mdash;</span></div>
+        <div><span class="label">Error</span><span class="v" id="err">&mdash;</span></div>
+      </div>
+      <div class="waste" id="waste"></div>
+      <div class="sure">
+        <span class="label">Token by token</span>
+        <div class="toks" id="cands"></div>
+      </div>
+      <div class="hundred">
+        <div class="hhead"><button class="hbtn" id="h100" type="button">Ask it 100 times</button><button class="hbtn soft gone" id="hclear" type="button">Clear</button><span class="hline" id="hline"><i></i></span></div>
+        <div class="hres" id="hres"></div>
+      </div>
+    </section>
+
+  </div>
+
+  <section class="more" id="lenSec" hidden>
+    <hr />
+    <div class="lenwrap">
+      <div class="lenmain">
+        <h2>Error by length</h2>
+        <div class="chart">
+          <div class="yax" aria-hidden="true"><span style="top:0" id="yTop">100%</span><span style="top:50%" id="yMid">50%</span><span style="top:100%">0%</span></div>
+          <div class="plot"><div class="grid" style="top:0"></div><div class="grid" style="top:50%"></div><div class="cols" id="cols"></div></div>
+          <div class="xax" id="xax" aria-hidden="true"></div>
+          <div class="xcap">tokens typed, median error</div>
+        </div>
+      </div>
+      <div class="detail" id="detail" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="more" id="famSec" hidden>
+    <hr />
+    <h2>Error by operations</h2>
+    <div class="fams" id="fams"></div>
+  </section>
+
+  <footer>
+    <span>&copy; Ethan Marot &middot; 2026</span>
+    <nav><a href="https://github.com/emarotethz/vibeulator" target="_blank" rel="noopener">Source &#8599;</a><a href="/miscellaneous/">Miscellaneous</a><a href="/">ethanmarot.com</a></nav>
+    <span class="credit">Design adapted from <a href="https://sgs-rl.github.io/" target="_blank" rel="noopener">sgs-rl.github.io</a> by Mateo Guaman Castro, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener">CC BY 4.0</a>, with changes.</span>
+  </footer>
+
+</div>
+</body>
+</html>
