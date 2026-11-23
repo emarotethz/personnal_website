@@ -15,11 +15,11 @@ export function fail(status, error, extra = {}) {
 
 const MAX_BODY = 512;
 
-export async function readJsonBody(req) {
+export async function readJsonBody(req, max = MAX_BODY) {
   const len = Number(req.headers.get('content-length'));
-  if (Number.isFinite(len) && len > MAX_BODY) return { ok: false, why: 'too-large' };
+  if (Number.isFinite(len) && len > max) return { ok: false, why: 'too-large' };
   let text;
   try { text = await req.text(); } catch { return { ok: false, why: 'unreadable' }; }
-  if (text.length > MAX_BODY) return { ok: false, why: 'too-large' };
+  if (text.length > max) return { ok: false, why: 'too-large' };
   try { return { ok: true, body: JSON.parse(text) }; } catch { return { ok: false, why: 'malformed' }; }
 }
