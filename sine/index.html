@@ -117,7 +117,7 @@
 
   .gbox{--gc:#e8590c;position:absolute;left:0;top:0;background:color-mix(in srgb,var(--gc) 9%,transparent);pointer-events:none;transition:background-color .25s ease}
   .gbox[data-on="all"]{background:color-mix(in srgb,var(--gc) 17%,transparent)}
-  .gbox.mine{outline:1px dashed color-mix(in srgb,var(--ink) 45%,transparent);outline-offset:0}
+  .gbox.mine{outline:1px dashed color-mix(in srgb,var(--ink) 45%,transparent);outline-offset:0;pointer-events:auto}
   .ghead{position:absolute;left:0;bottom:calc(100% + 26px);transform-origin:0 100%;transform:scale(var(--hs,1));display:flex;align-items:baseline;gap:12px;white-space:nowrap;pointer-events:auto;background:#000;padding:0 6px 0 0}
   .gname{font-size:28px;font-weight:500;letter-spacing:-0.035em;line-height:1}
   .gname:hover{color:#000;background:var(--hi);border-color:var(--hi)}
@@ -423,6 +423,6 @@
 
 <script src="audio.js?v=3"></script>
 <script src="engine.js?v=2"></script>
-<script src="sine.js?v=22"></script>
+<script src="sine.js?v=24"></script>
 </body>
 </html>

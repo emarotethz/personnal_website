@@ -5,7 +5,7 @@ import {
   readState, casState, readNonce, writeNonce, readRate, writeRate,
 } from './sine-store.mjs';
 import {
-  publicState, newBlockId, placeBlock, startCell, defaultGroup, groupOwner, nameTaken, freeName,
+  publicState, newBlockId, placeBlock, placeBox, startCell, defaultGroup, groupOwner, nameTaken, freeName,
   FORK_TEMPLATE, DEFAULT_COLOR, MAX_BLOCKS, MAX_PER_DEVICE, RL_MS, LEDGER_MAX, isColor,
 } from './sine-schema.mjs';
 import { hmacHex } from './identity.mjs';
@@ -69,6 +69,16 @@ export async function commitEdit(store, env, { claimId, edit, cc = '??', ip = ''
       state.boxes = state.boxes || {};
       if (edit.about) state.boxes[edit.group] = { about: edit.about };
       else delete state.boxes[edit.group];
+      return { ok: true, state, extra: { blockId: null } };
+    }
+    if (edit.op === 'move') {
+      const members = state.blocks.filter((b) => b.group === edit.group);
+      if (!members.length) return { ok: false, status: 404, error: 'no-such-box' };
+      if (members.some((b) => b.owner === 'seed' || b.owner !== claimId)) return { ok: false, status: 403, error: 'not-yours' };
+      const shift = placeBox(state.blocks, edit);
+      if (!shift) return { ok: false, status: 409, error: 'crowded' };
+      state.blocks = state.blocks.map((b) => (b.group === edit.group
+        ? { ...b, col: b.col + shift.dc, row: b.row + shift.dr } : b));
       return { ok: true, state, extra: { blockId: null } };
     }
     if (edit.op === 'fork') {

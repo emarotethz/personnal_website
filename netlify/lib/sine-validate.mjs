@@ -3,7 +3,7 @@ import {
 } from './sine-schema.mjs';
 
 const NONCE_RE = /^[A-Za-z0-9_-]{8,64}$/;
-const OPS = ['fork', 'update', 'delete', 'describe'];
+const OPS = ['fork', 'update', 'delete', 'describe', 'move'];
 const CONTROL_RE = /[\u0000-\u001f\u007f-\u009f]/;
 
 const bad = (field) => ({ ok: false, field });
@@ -90,6 +90,16 @@ export function validateSineEdit(body) {
     const about = body.about.replace(/\s+/g, ' ').trim();
     if (about.length > ABOUT_MAX || CONTROL_RE.test(about)) return bad('about');
     return { ok: true, edit: { op, nonce, group, about } };
+  }
+
+  // a whole box, shifted by whole cells
+  if (op === 'move') {
+    const group = readGroup(body.group, undefined);
+    if (!group) return bad('group');
+    const shift = (v) => (isNum(v) && Number.isInteger(v) && Math.abs(v) <= 2 * COORD_MAX ? v : null);
+    const dc = shift(body.dc), dr = shift(body.dr);
+    if (dc === null || dr === null) return bad('shift');
+    return { ok: true, edit: { op, nonce, group, dc, dr } };
   }
 
   const { id } = body;

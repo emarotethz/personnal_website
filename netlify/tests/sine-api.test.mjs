@@ -46,6 +46,8 @@ const bad = [
   ['fractional cell', { op: 'fork', parent: ROOT, col: 1.5, row: 0 }, 'cell'],
   ['update with nothing to change', { op: 'update', id: ROOT }, 'empty'],
   ['malformed block id', { op: 'delete', id: 'nope' }, 'id'],
+  ['moving no box', { op: 'move', dc: 1, dr: 0 }, 'group'],
+  ['moving by part of a cell', { op: 'move', group: 'x', dc: 0.5, dr: 0 }, 'shift'],
 ];
 for (const [label, body, field] of bad) {
   const r = await sedit(v, { ...body, nonce: nonce('bad', field) });
@@ -195,7 +197,7 @@ const tool = async (url, name, args) => {
 const init = await mcp(MCP, 'initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '0' } });
 check('initialize answers', [init.status, init.body.result.serverInfo.name], [200, 'sine']);
 const tl = await mcp(MCP, 'tools/list', {});
-check('the tools are listed', tl.body.result.tools.map((t) => t.name).sort().join(','), 'add_block,delete_block,describe_box,edit_block,examples,list_blocks,read_block,test_script');
+check('the tools are listed', tl.body.result.tools.map((t) => t.name).sort().join(','), 'add_block,delete_block,describe_box,edit_block,examples,list_blocks,move_box,read_block,test_script');
 const ex = await tool(MCP, 'examples', {});
 check('examples carry the guide and the code of every example song', [ex.error, ex.text.includes('# Writing a sine block'), ex.text.includes('### fractal tune'), ex.text.includes('def wave(p)')], [false, true, true, true]);
 const exRes = await mcp(MCP, 'resources/read', { uri: 'sine://examples' });
@@ -236,6 +238,14 @@ check('a forged key is refused', forgedKey.status, 401);
 const rotated = await (await fetch(`${BASE}/api/sine-key`, { method: 'POST', headers: { 'X-Beat-Token': agentDev.token } })).json();
 const oldKey = await mcp(AURL, 'tools/call', { name: 'list_blocks', arguments: {} });
 check('a new address switches the old one off', [oldKey.status, rotated.url !== AURL], [401, true]);
+await sleep(RL_WAIT);
+const agentBox = blockOf(await getSine(), agentId);
+const boxMove = await tool(rotated.url, 'move_box', { group: agentBox.group, dc: 0, dr: 30 });
+const movedTo = boxMove.error ? null : JSON.parse(boxMove.text).blocks[0];
+check('it can move its own box', [boxMove.error, movedTo && movedTo.row - agentBox.row, movedTo && movedTo.col - agentBox.col], [false, 30, 0]);
+await sleep(RL_WAIT);
+const seedMoveA = await tool(rotated.url, 'move_box', { group: 'giant thirds', dc: 1, dr: 0 });
+check('but not an example', [seedMoveA.error, /someone else/.test(seedMoveA.text)], [true, true]);
 await sleep(RL_WAIT);
 const delA = await tool(rotated.url, 'delete_block', { id: agentId });
 check('the new address can delete its own block', delA.error, false);
@@ -286,6 +296,48 @@ for (const [dev, id] of clean11) { const r = await sedit(dev, { op: 'delete', id
 await sleep(RL_WAIT);
 const last = await sedit(nm, { op: 'delete', id: u1.body.blockId, nonce: nonce('c11', 'last') });
 check('and the box note goes with its last block', [last.status, last.body.state.boxes[myBox]], [200, undefined]);
+
+section('[11b] a box moves as one, and only its maker can move it');
+const mover = await newDevice();
+const mb = 'test moving box';
+const m1 = await sedit(mover, { op: 'fork', parent: ROOT, nonce: nonce('box', 1), name: 'test mover one', author: 'test mover', group: mb, col: 20, row: 20 });
+await sleep(RL_WAIT);
+const m2 = await sedit(mover, { op: 'fork', parent: ROOT, nonce: nonce('box', 2), name: 'test mover two', group: mb });
+const cellsOf = (st) => [m1, m2].map((r) => { const b = blockOf(st, r.body.blockId); return [b.col, b.row]; });
+const at0 = cellsOf(m2.body.state);
+await sleep(RL_WAIT);
+const mv1 = await sedit(mover, { op: 'move', group: mb, dc: 3, dr: 2, nonce: nonce('box', 3) });
+check('the whole box shifts together', [mv1.status, cellsOf(mv1.body.state)], [200, at0.map(([c, r]) => [c + 3, r + 2])]);
+const thief = await newDevice();
+const boxSteal = await sedit(thief, { op: 'move', group: mb, dc: 1, dr: 0, nonce: nonce('box', 4) });
+check('nobody else can move it', [boxSteal.status, boxSteal.body.error], [403, 'not-yours']);
+await sleep(RL_WAIT);
+const seedBoxMove = await sedit(thief, { op: 'move', group: 'giant thirds', dc: 5, dr: 0, nonce: nonce('box', 5) });
+check('nor an example', [seedBoxMove.status, seedBoxMove.body.error], [403, 'not-yours']);
+await sleep(RL_WAIT);
+const noBox = await sedit(thief, { op: 'move', group: 'test no such box', dc: 1, dr: 0, nonce: nonce('box', 6) });
+check('a box that is not there', [noBox.status, noBox.body.error], [404, 'no-such-box']);
+const sineB = blockOf(mv1.body.state, ROOT), at1 = cellsOf(mv1.body.state);
+await sleep(RL_WAIT);
+const onto = await sedit(mover, { op: 'move', group: mb, dc: sineB.col - at1[0][0], dr: sineB.row - at1[0][1], nonce: nonce('box', 7) });
+const bboxOf = (st, g) => {
+  const bs = st.blocks.filter((b) => b.group === g);
+  return { c0: Math.min(...bs.map((b) => b.col)), c1: Math.max(...bs.map((b) => b.col)), r0: Math.min(...bs.map((b) => b.row)), r1: Math.max(...bs.map((b) => b.row)) };
+};
+const myBbox = bboxOf(onto.body.state, mb);
+const crowding = [...new Set(onto.body.state.blocks.map((b) => b.group))].filter((g) => g !== mb).filter((g) => {
+  const o = bboxOf(onto.body.state, g);
+  return myBbox.c0 <= o.c1 + 1 && myBbox.c1 >= o.c0 - 1 && myBbox.r0 <= o.r1 + 1 && myBbox.r1 >= o.r0 - 1;
+});
+check('dropped on the examples, it lands one cell clear of every box', [onto.status, crowding], [200, []]);
+const at2 = cellsOf(onto.body.state);
+check('and still in one piece', Math.abs(at2[0][0] - at2[1][0]) + Math.abs(at2[0][1] - at2[1][1]), 1);
+await sleep(RL_WAIT);
+for (const r of [m2, m1]) {
+  const d = await sedit(mover, { op: 'delete', id: r.body.blockId, nonce: nonce('c11b', r.body.blockId) });
+  check(`removed ${r.body.blockId}`, d.status, 200);
+  await sleep(RL_WAIT);
+}
 
 section('[9] cleanup');
 await sleep(RL_WAIT);

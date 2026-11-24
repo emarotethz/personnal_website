@@ -197,13 +197,45 @@
       if (loose.some(function (b) { return b.col >= c0 - 1 && b.col <= c1 + 1 && b.row >= r0 - 1 && b.row <= r1 + 1; })) return false;
       return !members.length || connected(members.concat([[c, r]]));
     }
+    var at = nearest(col, row, ok);
+    return at && { col: at[0], row: at[1] };
+  }
+
+  // how far a whole box may shift (mirrors placeBox in sine-schema.mjs)
+  function boxShift(blocks, group, dc, dr) {
+    var c0 = 1e9, c1 = -1e9, r0 = 1e9, r1 = -1e9, boxes = {}, loose = [];
+    blocks.forEach(function (b) {
+      if (b.group === group) {
+        c0 = Math.min(c0, b.col); c1 = Math.max(c1, b.col); r0 = Math.min(r0, b.row); r1 = Math.max(r1, b.row);
+      } else if (!b.group) loose.push(b);
+      else {
+        var g = boxes[b.group];
+        if (!g) boxes[b.group] = { c0: b.col, c1: b.col, r0: b.row, r1: b.row };
+        else { g.c0 = Math.min(g.c0, b.col); g.c1 = Math.max(g.c1, b.col); g.r0 = Math.min(g.r0, b.row); g.r1 = Math.max(g.r1, b.row); }
+      }
+    });
+    if (!group || c0 > c1) return null;
+    var fences = Object.keys(boxes).map(function (k) {
+      var g = boxes[k]; return { c0: g.c0 - 1, c1: g.c1 + 1, r0: g.r0 - 1, r1: g.r1 + 1 };
+    });
+    var at = nearest(dc, dr, function (sc, sr) {
+      var a0 = c0 + sc, a1 = c1 + sc, b0 = r0 + sr, b1 = r1 + sr;
+      if (Math.max(-a0, a1, -b0, b1) > 200) return false;
+      if (fences.some(function (f) { return a0 <= f.c1 && a1 >= f.c0 && b0 <= f.r1 && b1 >= f.r0; })) return false;
+      return !loose.some(function (b) { return b.col >= a0 - 1 && b.col <= a1 + 1 && b.row >= b0 - 1 && b.row <= b1 + 1; });
+    });
+    return at && { dc: at[0], dr: at[1] };
+  }
+
+  // the cell nearest (c, r) that ok() takes, looking out ring by ring
+  function nearest(c, r, ok) {
     for (var rad = 0; rad <= 40; rad++) {
       var ring = [];
       for (var dc = -rad; dc <= rad; dc++) for (var dr = -rad; dr <= rad; dr++) {
         if (Math.max(Math.abs(dc), Math.abs(dr)) === rad) ring.push([dc, dr]);
       }
       ring.sort(function (a, b) { return (a[0] * a[0] + a[1] * a[1]) - (b[0] * b[0] + b[1] * b[1]) || a[1] - b[1] || a[0] - b[0]; });
-      for (var i = 0; i < ring.length; i++) if (ok(col + ring[i][0], row + ring[i][1])) return { col: col + ring[i][0], row: row + ring[i][1] };
+      for (var i = 0; i < ring.length; i++) if (ok(c + ring[i][0], r + ring[i][1])) return [c + ring[i][0], r + ring[i][1]];
     }
     return null;
   }
@@ -283,7 +315,8 @@
 
   function placeEl(id) {
     var el = blockEls[id], p = S.pos[id];
-    if (el && p) el.style.transform = 'translate(' + p.x + 'px,' + p.y + 'px)';
+    // the translate property, not transform, so the lift scale of a dragged card stays round its centre
+    if (el && p) el.style.translate = p.x + 'px ' + p.y + 'px';
   }
 
   function paintCard(id) {
@@ -322,7 +355,7 @@
     });
     S.st.blocks.forEach(function (b) {
       if (!blockEls[b.id]) buildCard(b);
-      else if (S.dragging !== b.id) {
+      else if (S.dragging !== b.id && !(S.dragBox && S.dragBox === b.group)) {
         var to = cellXY(b.col, b.row), p = S.pos[b.id], tw = tweens[b.id];
         var dest = tw ? { x: tw.tx, y: tw.ty } : p;
         if (dest.x !== to.x || dest.y !== to.y) tweenTo(b.id, to);
@@ -455,6 +488,7 @@
           if (turnOn && !SN.audio.isRunning()) setListening(true);
           if (turnOn) tourEvent(isSineBox(gg) ? 'sine' : 'play');
         });
+        box.addEventListener('pointerdown', onBoxPointerDown);
         wrap.appendChild(box);
         boxEls[g.name] = box;
       }
@@ -487,17 +521,17 @@
   var GS = 10;                      // routing grid step, in world px
   var MARGIN = 6;                   // clearance round a card
   var TURN = 3, USE = 7, CROSS = 1.5, BOX_COST = 0.3;
-  var wires = {};                   // key -> {pts, d, color, kids}
+  var wires = {};                   // block id -> the wire into it: {pts, d, color, exit, entry}
   var headSize = {};                // box name -> [w, h], measured when its text changes
 
-  function headRect(name, r) {
+  // a box's label, scaled by k (up close it grows to 0.55 / 0.45, zoomed out up to 2)
+  function headRect(name, r, k) {
     var hs = headSize[name];
     if (!hs) return null;
-    var k = S.far ? 2 : 0.55 / 0.45;
     return { x: r.x, y: r.y - 26 - hs[1] * k, w: hs[0] * k, h: hs[1] * k };
   }
 
-  function buildGrid(far) {
+  function buildGrid() {
     var x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
     Object.keys(S.pos).forEach(function (id) {
       var p = S.pos[id];
@@ -523,14 +557,12 @@
       if (!gr.name) return;
       var k = ++gi;
       g.idx[gr.name] = k;
-      var r = boxRect(gr), hr = headRect(gr.name, r);
+      var r = boxRect(gr), hr = headRect(gr.name, r, 0.55 / 0.45);
       if (hr) mark(hr.x, hr.y, hr.w, hr.h, 6, function (n) { g.hard[n] = 1; });
-      if (far) { mark(r.x, r.y, r.w, r.h, MARGIN, function (n) { g.hard[n] = 1; }); return; }
       mark(r.x, r.y, r.w, r.h, 0, function (n) { if (!g.box[n]) g.box[n] = k; });
     });
     Object.keys(S.pos).forEach(function (id) {
-      var p = S.pos[id], b = S.byId[id];
-      if (far && b && b.group) return;
+      var p = S.pos[id];
       mark(p.x, p.y, CARD_W, CARD_H, MARGIN, function (n) { g.hard[n] = 1; });
     });
     return g;
@@ -740,43 +772,18 @@
     return p ? { x: p.x, y: p.y, w: CARD_W, h: CARD_H } : null;
   }
 
-  // what needs a wire: block to block up close, box to box when zoomed out
+  // a wire from every block to the block it forked; zoomed out shows some of these same wires
   function wireJobs() {
     var jobs = [];
-    if (!S.far) {
-      S.st.blocks.forEach(function (b) {
-        var pb = b.parent && S.byId[b.parent];
-        if (!pb) return;
-        jobs.push({ key: b.id, from: b.parent, to: b.id, color: b.color, kids: [b.id], groups: [pb.group, b.group] });
-      });
-      return jobs;
-    }
-    var rect = {}, color = {}, edges = {};
-    groupsOf().forEach(function (gr) {
-      if (!gr.name) return;
-      rect['g:' + gr.name] = function () { return boxRect(findGroup(gr.name)); };
-      color['g:' + gr.name] = groupFirst(gr.blocks, gr.name).color;
-    });
-    var keyOf = function (b) {
-      if (b.group) return 'g:' + b.group;
-      rect['b:' + b.id] = function () { return cardRect(b.id); };
-      color['b:' + b.id] = b.color;
-      return 'b:' + b.id;
-    };
     S.st.blocks.forEach(function (b) {
       var pb = b.parent && S.byId[b.parent];
       if (!pb) return;
-      var kp = keyOf(pb), kc = keyOf(b);
-      if (kp === kc) return;
-      var e = edges[kp + '>' + kc] || (edges[kp + '>' + kc] = { key: 'far:' + kp + '>' + kc, fromRect: rect[kp], toRect: rect[kc], color: color[kc], kids: [], groups: [] });
-      e.kids.push(b.id);
+      jobs.push({ key: b.id, from: b.parent, to: b.id, color: b.color, groups: [pb.group, b.group] });
     });
-    return Object.keys(edges).map(function (k) { return edges[k]; });
+    return jobs;
   }
 
-  function jobRects(job) {
-    return job.fromRect ? [job.fromRect(), job.toRect()] : [cardRect(job.from), cardRect(job.to)];
-  }
+  function jobRects(job) { return [cardRect(job.from), cardRect(job.to)]; }
 
   function runJob(g, job, before) {
     var rs = jobRects(job);
@@ -787,7 +794,7 @@
     var pts = res ? res.pts : null;
     if (pts) markUse(g, pts);
     wires[job.key] = {
-      pts: pts, d: pts ? rounded(pts) : curve(rs[0], rs[1]), color: job.color, kids: job.kids,
+      pts: pts, d: pts ? rounded(pts) : curve(rs[0], rs[1]), color: job.color,
       exit: res ? res.exit : null, entry: res ? res.entry : null,
     };
   }
@@ -801,7 +808,7 @@
   var routeQueued = false;
   function routeAll() {
     if (!S.st) return;
-    var g = buildGrid(S.far);
+    var g = buildGrid();
     var before = wires;
     wires = {};
     var jobs = wireJobs();
@@ -816,8 +823,7 @@
   }
   // only the wires touching these cards, for while things move; the rest keep their lanes
   function routeAround(ids) {
-    if (S.far) { routeSoon(); return; }
-    var g = buildGrid(false);
+    var g = buildGrid();
     var jobs = wireJobs(), redo = [];
     jobs.forEach(function (job) {
       if (ids[job.from] || ids[job.to]) redo.push(job);
@@ -829,14 +835,88 @@
 
   function refreshWires() { paintWires(); }
 
+  // Zoomed out, each pair of boxes keeps one link: the shortest of the wires between them,
+  // cut where it leaves one box and enters the other, so it lies exactly on that wire.
+  // Wires to a sounding block win, so a lit link is a lit wire up close too, and so do
+  // wires clear of the labels, which grow when zoomed out.
+  function farLinks() {
+    var gs = {}, labels = [], links = {};
+    groupsOf().forEach(function (gr) {
+      if (!gr.name) return;
+      gs[gr.name] = boxRect(gr);
+      var hr = headRect(gr.name, gs[gr.name], 2);
+      if (hr) labels.push(hr);
+    });
+    var keyOf = function (b) { return b.group ? 'g:' + b.group : 'b:' + b.id; };
+    var rectOf = function (b) { return b.group ? gs[b.group] : cardRect(b.id); };
+    S.st.blocks.forEach(function (b) {
+      var pb = b.parent && S.byId[b.parent];
+      if (!pb || !wires[b.id]) return;
+      var kp = keyOf(pb), kc = keyOf(b);
+      if (kp === kc) return;
+      var e = links[kp + '>' + kc] || (links[kp + '>' + kc] = { ra: rectOf(pb), rb: rectOf(b), kids: [] });
+      e.kids.push(b.id);
+    });
+    return Object.keys(links).map(function (k) {
+      var e = links[k], on = e.kids.filter(function (id) { return S.unmuted[id]; }), best = null;
+      (on.length ? on : e.kids).forEach(function (id) {
+        var w = wires[id], pts = w.pts && e.ra && e.rb ? trunk(w.pts, e.ra, e.rb) : null;
+        var len = pts ? pathLen(pts) + (crosses(pts, labels) ? 1e6 : 0) : Infinity;
+        if (!best || len < best.len) best = { d: pts ? rounded(pts) : w.d, color: w.color, len: len };
+      });
+      return { d: best.d, color: best.color, on: on.length > 0 };
+    });
+  }
+
+  function inside(p, r) { return p[0] > r.x && p[0] < r.x + r.w && p[1] > r.y && p[1] < r.y + r.h; }
+  // where the straight step a -> b crosses r's border, with one end inside r
+  function crossing(a, b, r) {
+    var out = inside(a, r);
+    if (a[1] === b[1]) return [(b[0] > a[0]) === out ? r.x + r.w : r.x, a[1]];
+    return [a[0], (b[1] > a[1]) === out ? r.y + r.h : r.y];
+  }
+  // the part of a wire between leaving rect ra for the last time and first entering rb
+  function trunk(pts, ra, rb) {
+    var n = pts.length, lastA = -1, firstB = n, i;
+    for (i = 0; i < n; i++) if (inside(pts[i], ra)) lastA = i;
+    if (lastA >= n - 1) return null;
+    for (i = lastA + 1; i < n; i++) if (inside(pts[i], rb)) { firstB = i; break; }
+    var out = [lastA >= 0 ? crossing(pts[lastA], pts[lastA + 1], ra) : pts[0]];
+    for (i = lastA + 1; i < firstB; i++) out.push(pts[i]);
+    if (firstB < n) out.push(crossing(pts[firstB - 1], pts[firstB], rb));
+    var clean = [out[0]];
+    for (i = 1; i < out.length; i++) {
+      var q = clean[clean.length - 1];
+      if (out[i][0] !== q[0] || out[i][1] !== q[1]) clean.push(out[i]);
+    }
+    return clean.length > 1 ? simplify(clean) : null;
+  }
+  function crosses(pts, rects) {
+    for (var i = 1; i < pts.length; i++) {
+      var x0 = Math.min(pts[i - 1][0], pts[i][0]), x1 = Math.max(pts[i - 1][0], pts[i][0]);
+      var y0 = Math.min(pts[i - 1][1], pts[i][1]), y1 = Math.max(pts[i - 1][1], pts[i][1]);
+      for (var j = 0; j < rects.length; j++) {
+        var r = rects[j];
+        if (x1 > r.x && x0 < r.x + r.w && y1 > r.y && y0 < r.y + r.h) return true;
+      }
+    }
+    return false;
+  }
+  function pathLen(pts) {
+    var len = 0;
+    for (var i = 1; i < pts.length; i++) len += Math.abs(pts[i][0] - pts[i - 1][0]) + Math.abs(pts[i][1] - pts[i - 1][1]);
+    return len;
+  }
+
   function paintWires() {
     if (!S.st) return;
     var base = '', live = '';
-    Object.keys(wires).forEach(function (k) {
-      var w = wires[k];
+    var list = S.far ? farLinks() : Object.keys(wires).map(function (k) {
+      return { d: wires[k].d, color: wires[k].color, on: !!S.unmuted[k] };
+    });
+    list.forEach(function (w) {
       if (!w.d) return;
-      var hex = hexOf(w.color);
-      var on = w.kids.some(function (id) { return S.unmuted[id]; });
+      var hex = hexOf(w.color), on = w.on;
       if (on) live += '<path class="wl" stroke="' + hex + '" d="' + w.d + '"/><path class="flow" d="' + w.d + '"/>';
       else base += '<path stroke="' + rgba(hex, 0.5) + '" d="' + w.d + '"/>';
     });
@@ -902,7 +982,7 @@
       if (far !== S.far) {
         S.far = far;
         cv.classList.toggle('far', far);
-        routeSoon();
+        paintWires();
         if (far) Object.keys(S.unmuted).forEach(drawThumb);   // tiles show still waves
       }
     });
@@ -991,6 +1071,7 @@
   var glide = null;
 
   function pinchInit() {
+    if (gesture && gesture.moved) settleDrag(gesture, false);
     var pts = Array.from(pointers.values());
     gesture = {
       type: 'pinch',
@@ -1008,12 +1089,27 @@
     pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
     $('canvas').setPointerCapture(e.pointerId);
     if (pointers.size === 2) { pinchInit(); return; }
-    var p = S.pos[id] || { x: 0, y: 0 };
+    var p = S.pos[id] || { x: 0, y: 0 }, b = S.byId[id];
+    // a card of your own box carries the whole box; a loose card of yours moves alone
+    var mine = S.mine[id], boxed = mine && b && b.group && groupIsMine(b.group);
     gesture = {
-      type: S.mine[id] ? 'card' : 'pan', id: id,
+      type: boxed ? 'box' : mine ? 'card' : 'pan', id: id, name: boxed ? b.group : null, pid: e.pointerId,
       x0: e.clientX, y0: e.clientY, view0: { x: S.view.x, y: S.view.y },
       px: p.x, py: p.y, moved: false, clickId: id, track: [],
     };
+  }
+
+  // your own box moves as one: grab one of its cards, its name, or the space round its cards
+  function onBoxPointerDown(e) {
+    var name = e.currentTarget.dataset.name;
+    if (e.button > 0 || e.target.closest('.gplay') || !groupIsMine(name)) return;
+    e.stopPropagation();
+    stopAnim(); stopGlide();
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    // the name stays a plain button (a tap opens the box) until the pointer moves
+    if (!e.target.closest('.gname')) $('canvas').setPointerCapture(e.pointerId);
+    if (pointers.size === 2) { pinchInit(); return; }
+    gesture = { type: 'box', name: name, pid: e.pointerId, x0: e.clientX, y0: e.clientY, moved: false, track: [] };
   }
 
   function onCanvasPointerDown(e) {
@@ -1050,6 +1146,7 @@
     if (!gesture.moved && Math.hypot(dx, dy) > 5) {
       gesture.moved = true;
       if (gesture.type === 'card') startDrag(gesture.id);
+      if (gesture.type === 'box' && !startBoxDrag(gesture)) { gesture = null; return; }
     }
     gesture.track.push({ x: e.clientX, y: e.clientY, t: performance.now() });
     if (gesture.track.length > 6) gesture.track.shift();
@@ -1078,6 +1175,94 @@
         });
       }
     }
+    if (gesture.type === 'box' && gesture.moved) {
+      gesture.dx = dx; gesture.dy = dy;
+      if (!gesture.raf) {
+        var gb = gesture;
+        gb.raf = requestAnimationFrame(function () {
+          gb.raf = 0;
+          if (gesture !== gb) return;
+          Object.keys(gb.start).forEach(function (id) {
+            var p = S.pos[id];
+            if (!p) return;
+            p.x = gb.start[id].x + gb.dx / S.view.z;
+            p.y = gb.start[id].y + gb.dy / S.view.z;
+            placeEl(id);
+          });
+          moveBoxGhost(gb);
+          positionBoxes();
+          routeAround(gb.start);
+        });
+      }
+    }
+  }
+
+  function startBoxDrag(g) {
+    var gr = findGroup(g.name);
+    if (!gr) return false;
+    try { $('canvas').setPointerCapture(g.pid); } catch (err) {}
+    $('canvas').classList.add('panning');
+    S.dragBox = g.name;
+    g.start = {};
+    var c0 = 1e9, c1 = -1e9, r0 = 1e9, r1 = -1e9;
+    gr.blocks.forEach(function (b) {
+      delete tweens[b.id];
+      var p = S.pos[b.id];
+      if (p) g.start[b.id] = { x: p.x, y: p.y };
+      if (blockEls[b.id]) blockEls[b.id].classList.add('dragging');
+      c0 = Math.min(c0, b.col); c1 = Math.max(c1, b.col); r0 = Math.min(r0, b.row); r1 = Math.max(r1, b.row);
+    });
+    g.c0 = c0; g.r0 = r0;
+    var gh = $('ghost');
+    gh.dataset.cell = '';
+    gh.style.width = (c1 - c0) * CW + CARD_W + 'px';
+    gh.style.height = (r1 - r0) * CH + CARD_H + 'px';
+    moveBoxGhost(g);
+    gh.classList.add('on');
+    return true;
+  }
+
+  function boxLanding(g) {
+    return boxShift(S.st.blocks, g.name, Math.round((g.dx || 0) / S.view.z / CW), Math.round((g.dy || 0) / S.view.z / CH));
+  }
+
+  function moveBoxGhost(g) {
+    var s = boxLanding(g), gh = $('ghost');
+    if (!s) return;
+    var key = s.dc + ':' + s.dr;
+    if (gh.dataset.cell === key) return;
+    gh.dataset.cell = key;
+    gh.style.transform = 'translate(' + (g.c0 + s.dc) * CW + 'px,' + (g.r0 + s.dr) * CH + 'px)';
+  }
+
+  // put a dragged card or box down: where it was dropped (keep), or back where it was
+  function settleDrag(g, keep) {
+    if (g.raf) cancelAnimationFrame(g.raf);
+    $('ghost').classList.remove('on');
+    if (g.type === 'card') {
+      var b = S.byId[g.id], p = S.pos[g.id];
+      if (keep && p && g.dx !== undefined) { p.x = g.px + g.dx / S.view.z; p.y = g.py + g.dy / S.view.z; }
+      var c = (keep && landingCell(g.id)) || (b ? { col: b.col, row: b.row } : null);
+      S.dragging = null;
+      if (blockEls[g.id]) blockEls[g.id].classList.remove('dragging');
+      if (!b || !c) return;
+      tweenTo(g.id, cellXY(c.col, c.row), 260);
+      if (c.col === b.col && c.row === b.row) return;
+      b.col = c.col; b.row = c.row;
+      commit({ op: 'update', id: g.id, col: c.col, row: c.row }, { quiet: true });
+      return;
+    }
+    if (g.type !== 'box') return;
+    var shift = keep ? boxLanding(g) : null;
+    var moved = !!shift && (shift.dc !== 0 || shift.dr !== 0);
+    S.dragBox = null;
+    S.st.blocks.forEach(function (b) {
+      if (b.group !== g.name) return;
+      if (blockEls[b.id]) blockEls[b.id].classList.remove('dragging');
+      if (moved) { b.col += shift.dc; b.row += shift.dr; }
+      tweenTo(b.id, cellXY(b.col, b.row), 260);
+    });
+    if (moved) commit({ op: 'move', group: g.name, dc: shift.dc, dr: shift.dr }, { quiet: true });
   }
 
   function startDrag(id) {
@@ -1087,6 +1272,7 @@
     delete tweens[id];
     var gh = $('ghost');
     gh.dataset.cell = '';
+    gh.style.width = gh.style.height = '';
     moveGhost(id);
     gh.classList.add('on');
   }
@@ -1144,24 +1330,8 @@
       return;
     }
 
-    if (g.type === 'card') {
-      if (g.raf) cancelAnimationFrame(g.raf);
-      if (!g.moved) { openBlock(g.id); return; }
-      if (g.dx !== undefined) {
-        S.pos[g.id].x = g.px + g.dx / S.view.z;
-        S.pos[g.id].y = g.py + g.dy / S.view.z;
-      }
-      var id = g.id, el = blockEls[id], b = S.byId[id];
-      var c = landingCell(id) || (b ? { col: b.col, row: b.row } : null);
-      S.dragging = null;
-      if (el) el.classList.remove('dragging');
-      $('ghost').classList.remove('on');
-      if (!b || !c) return;
-      tweenTo(id, cellXY(c.col, c.row), 260);
-      if (c.col === b.col && c.row === b.row) return;
-      b.col = c.col; b.row = c.row;
-      commit({ op: 'update', id: id, col: c.col, row: c.row }, { quiet: true });
-    }
+    if (g.moved) settleDrag(g, true);
+    else if (g.clickId) openBlock(g.clickId);
   }
 
   /* ---------- editor ---------- */

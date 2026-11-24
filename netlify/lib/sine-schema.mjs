@@ -677,6 +677,31 @@ export function placeBlock(blocks, { group = '', col, row, selfId = null }) {
     if (loose.some((b) => b.col >= c0 - 1 && b.col <= c1 + 1 && b.row >= r0 - 1 && b.row <= r1 + 1)) return false;
     return !members.length || connected([...members, [c, r]]);
   };
+  const at = nearest(col, row, ok);
+  return at && { col: at[0], row: at[1] };
+}
+
+// how far a whole box may shift: the free shift nearest (dc, dr), keeping clear
+// of other boxes and loose blocks by one cell, as placeBlock does
+export function placeBox(blocks, { group, dc, dr }) {
+  const members = blocks.filter((b) => b.group === group);
+  if (!group || !members.length) return null;
+  const others = blocks.filter((b) => b.group !== group);
+  const box = boxesOf(members).get(group);
+  const fences = [...boxesOf(others).values()].map((g) => ({ c0: g.c0 - 1, c1: g.c1 + 1, r0: g.r0 - 1, r1: g.r1 + 1 }));
+  const loose = others.filter((b) => !b.group);
+  const ok = (sc, sr) => {
+    const c0 = box.c0 + sc, c1 = box.c1 + sc, r0 = box.r0 + sr, r1 = box.r1 + sr;
+    if (Math.max(-c0, c1, -r0, r1) > COORD_MAX) return false;
+    if (fences.some((f) => c0 <= f.c1 && c1 >= f.c0 && r0 <= f.r1 && r1 >= f.r0)) return false;
+    return !loose.some((b) => b.col >= c0 - 1 && b.col <= c1 + 1 && b.row >= r0 - 1 && b.row <= r1 + 1);
+  };
+  const at = nearest(dc, dr, ok);
+  return at && { dc: at[0], dr: at[1] };
+}
+
+// the cell nearest (c, r) that ok() takes, looking out ring by ring
+function nearest(c, r, ok) {
   for (let rad = 0; rad <= 40; rad++) {
     const ring = [];
     for (let dc = -rad; dc <= rad; dc++) {
@@ -685,7 +710,7 @@ export function placeBlock(blocks, { group = '', col, row, selfId = null }) {
       }
     }
     ring.sort((a, b) => (a[0] * a[0] + a[1] * a[1]) - (b[0] * b[0] + b[1] * b[1]) || a[1] - b[1] || a[0] - b[0]);
-    for (const [dc, dr] of ring) if (ok(col + dc, row + dr)) return { col: col + dc, row: row + dr };
+    for (const [dc, dr] of ring) if (ok(c + dc, r + dr)) return [c + dc, r + dr];
   }
   return null;
 }
