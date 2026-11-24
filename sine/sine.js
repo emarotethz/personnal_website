@@ -2206,6 +2206,14 @@
       loadAgentKey(true);
     });
 
+    $('toAgents').addEventListener('click', function () {
+      var still = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      $('agents').scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' });
+      var row = $('mcpUrl').parentNode;
+      row.classList.add('flash');
+      setTimeout(function () { row.classList.remove('flash'); }, 1800);
+    });
+    setupPageBar();
     $('tourAgain').addEventListener('click', function () { startTour(false); });
     $('tourNext').addEventListener('click', function () { tourGo(tour.i + 1); });
     $('tourShow').addEventListener('click', tourShow);
@@ -2225,6 +2233,40 @@
         setTimeout(function () { el.classList.remove('sel'); }, 2400);
       }
     });
+  }
+
+  // Browsers with overlay scrollbars (Firefox on GNOME, macOS) show none until the page scrolls, and the
+  // wheel over the canvas zooms instead, so there is no sign of the page below. Draw one that stays.
+  function setupPageBar() {
+    var bar = $('pagebar'), thumb = $('pthumb'), de = document.documentElement, drag = null;
+    var to = function (y) { window.scrollTo({ top: y, behavior: 'instant' }); };
+    function update() {
+      var H = de.scrollHeight, vh = window.innerHeight;
+      var on = window.innerWidth - de.clientWidth === 0 && H > vh + 2;
+      bar.classList.toggle('on', on);
+      if (!on) return;
+      var th = Math.max(48, vh * vh / H);
+      thumb.style.height = th + 'px';
+      thumb.style.transform = 'translateY(' + (vh - th) * Math.min(1, window.scrollY / (H - vh)) + 'px)';
+    }
+    bar.addEventListener('pointerdown', function (e) {
+      if (e.button > 0) return;
+      e.preventDefault();
+      var H = de.scrollHeight, vh = window.innerHeight, th = thumb.offsetHeight, k = (H - vh) / Math.max(1, vh - th);
+      var s0 = window.scrollY;
+      if (e.target !== thumb) { s0 = (e.clientY - th / 2) * k; to(s0); }   // a click on the track jumps there
+      drag = { y0: e.clientY, s0: Math.max(0, Math.min(H - vh, s0)), k: k };
+      bar.setPointerCapture(e.pointerId);
+      thumb.classList.add('drag');
+    });
+    bar.addEventListener('pointermove', function (e) { if (drag) to(drag.s0 + (e.clientY - drag.y0) * drag.k); });
+    var end = function () { drag = null; thumb.classList.remove('drag'); };
+    bar.addEventListener('pointerup', end);
+    bar.addEventListener('pointercancel', end);
+    window.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+    if (window.ResizeObserver) new ResizeObserver(update).observe(document.body);
+    update();
   }
 
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(init);
